@@ -90,8 +90,11 @@ Ben then confirmed automatic startup worked well, but still perceived around
 500 ms delay and requested continuous drive. The preceding `controller-timing`
 capture measured mostly 140 ms cycles, roughly 10 ms receiver reads and 7–8 ms
 motor commands. Those are software timings, not an explanation of all perceived
-latency. The continuous-drive version reduces pauses and removes repeated stops;
-its hardware timing and behavior are being checked separately.
+latency. The continuous-drive version reduces pauses and removes repeated stops.
+The `continuous-drive` capture shows initial cycle samples of 56–72 ms, receiver
+reads around 10–15 ms, and 0 ms spent commanding motors on unchanged-demand cycles.
+Zero command time does not mean a motor stopped: Nezha retains the last command.
+Perceived latency, smoothness and neutral stopping still need Ben's confirmation.
 
 Verified on this machine: offline CLI builds of `blink` and `car`, native ARM
 compilation in Docker, a successful USB flash/remount, and Ben's observation of
