@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { inspectSource, lockNativeSources, resolveCommit } from './sources';
 import { captureSerial } from './serial';
 import { latencyReport } from './latency';
+import { displayPreview } from './display-preview';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -207,6 +208,7 @@ const help = `micro:bit workspace — run COMMAND
   device                       Inspect USB and verified MICROBIT mount
   serial [SECONDS] [LABEL]     Capture serial in Docker; save timestamped local logs
   latency-report FILE          Analyze guided cue/input/command/encoder timestamps
+  display-preview              Generate an offline interactive joystick LED preview
   flash PROJECT --confirm      Explicitly transfer existing HEX; never builds
   test                         Run TypeScript CLI tests
   env lock                     Resolve devenv lock through the normal devenv flow
@@ -275,6 +277,7 @@ export async function main(args: string[]) {
         console.log('Cue-to-input includes human reaction and radio/receiver delay. Encoder ranges describe reported position samples, not exact physical onset.');
         break;
       }
+      case 'display-preview': await displayPreview(root); break;
       case 'flash': await flash(projectName(arg), rest.includes('--confirm')); break;
       case 'new': {
         const name = projectName(arg);

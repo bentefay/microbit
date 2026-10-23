@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import puppeteer from 'puppeteer';
 const url = process.argv[2];
 const expectedCall = fs.readFileSync('/workspace/projects/car/main.ts', 'utf8').trim();
-const expectedBlock = { 'car.startCommissioning()': 'car_start_commissioning',
+const expectedBlock = { 'car.startDriving()': 'car_start_driving', 'car.startCommissioning()': 'car_start_commissioning',
   'car.startControllerBench()': 'car_start_controller_bench', 'car.startLatencyTest()': 'car_start_latency_test' }[expectedCall];
 if (!expectedBlock) throw new Error('Unknown car startup block: ' + expectedCall);
 if (!url?.startsWith('http://localhost:3232/')) throw new Error('Expected localhost editor URL');

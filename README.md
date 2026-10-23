@@ -38,13 +38,15 @@ movement/aim split in FPS controls. Returning the steering stick to center shoul
 request the measured straight-ahead position. It must not merely stop a steering
 motor wherever it happens to be.
 
-`car` currently starts the **guided drive-latency test** in `bench.ts` (details below).
-The normal controller mode is `car.startControllerBench()`, with these controls:
-Do not use this mode with wheels or a steering linkage attached.
+`car` starts **`car.startDriving()`**, the consolidated driving program in `drive.ts`.
+Settings are in `settings.ts`; diagnostic programs remain separately selectable.
+The current configuration is for the existing loose motors. Before attaching a
+steering linkage, enter measured limits and switch off `looseMotorBench`.
 
 - Startup: small square, automatic receiver polling, no motor movement until
   three centered-stick samples. No button presses are needed. The current M2
-  encoder position becomes the bench center. Tick means control is active.
+  encoder position becomes the loose-motor bench center. The LED joystick display
+  then replaces the startup square; diagnostics report when control becomes active.
 - Left Y controls continuous signed M1 speed, capped at 20 percent. Speed commands
   are sent only when demand changes; centering the stick sends a stop. Physical
   speed linearity has not yet been measured.
@@ -52,8 +54,9 @@ Do not use this mode with wheels or a steering linkage attached.
   toward center when released. This is a loose-shaft sweep, not a measured linkage
   limit. The vendor's shortest-path absolute positioning wraps modulo 360. Targets
   update only on change, with no repeated stops. Angular-movement speed is 15 percent.
-- The micro:bit buttons do not arm or disarm this version. Use Nezha power-off
-  to stop the motors. A is left and B is right when facing the LED display.
+- **A selects the left-stick display; B selects the right-stick display.** A is
+  left and B is right when facing the LED matrix. Display selection does not change
+  motor control or arming. Use Nezha power-off to stop the motors.
 - A read failure shows X and stops polling. Restart to retry with centered sticks.
   Receiver readiness still does not prove fresh radio data. Repeated stale values
   can sustain drive demand, so this is not a radio-loss failsafe.
@@ -65,14 +68,53 @@ and when a failed receiver read returns, but blocked I2C can prevent those comma
 The active loop yields for 20 ms, plus MakeCode scheduling and I2C time. Continuous
 drive has its own per-motor speed command; the angular-movement speed setting is
 set once for steering instead of following throttle. Settings, axis inversions and
-the provisional eight-count dead zone are at the top of `bench.ts`.
+the provisional eight-count dead zone are in `settings.ts`. Chassis mode refuses
+to operate without an explicit calibration flag and valid measured limits, with
+the center between the endpoints and less than 180 degrees total shaft travel.
+Measured coordinates may cross zero using unwrapped values; no homing is performed.
 
-Timing diagnostics report `cycle_interval_ms`, `receiver_read_ms`, and
-`motor_command_ms` once per second while active. Changed commands also report
-`input_seen_ms` (device uptime) and the observed raw axes. These measure software
-timing, not radio sample age or physical input-to-motion latency. Waiting/fault
-states emit status messages once per second. `run serial 300 controller-timing`
-keeps a capture open for five minutes (CLI accepts 1–600 seconds).
+### Joystick LED display
+
+`displayStyle` selects one of three renderers. A/B select the stick; motor axes are
+read and commanded first, followed by the selected stick's other axis for display.
+Thus the display adds one receiver-axis read per cycle, not a second full control loop.
+LX and RY orientation uses conventional defaults and still needs hardware confirmation;
+their display inversion flags are independent of motor inversion. The display uses
+the same configurable dead zone as control and does not suppress intermittent neutral
+readings. The last latency capture contained several brief 128 readings while Ben
+reported holding a direction; the cause remains unresolved.
+
+Ben selected the blended moving-dot view as the default. The consolidated program
+passed 31 host tests, offline PXT compilation, the blocks/TypeScript browser
+round-trip, and flashing with no DAPLink error. The `final-car-display` capture
+confirmed active operation and changing inputs, with sampled maximum cycle times
+around 68–72 ms. Visual orientation of both sticks and physical steering calibration
+still require confirmation; serial output alone does not verify motor behavior.
+
+- `0` (default): a bright dot represents direction and deflection on the full 5×5
+  matrix, blending neighboring LEDs for intermediate positions. A dim center dot
+  remains as a reference. No separate radius scale is needed.
+- `1`: Ben's coarse/fine polar encoding. Outer-ring direction uses 16 positions;
+  the eight-position inner pointer rotates nine times per joystick revolution.
+  Both pointers and the center align at every cardinal and diagonal direction.
+  A brightness-pulsing marker in the rightmost column encodes radius in five levels,
+  bottom zero/top full. Pulsing distinguishes it where it overlaps the direction
+  pointer, which stays lit. At zero radius the direction is undefined and pointers
+  park upward. This is a visual angle code, not an eight-bit numerical readout.
+- `2`: aligned polar pointers with brightness proportional to deflection. Only the
+  center remains lit at neutral; no separate right-column scale is used.
+
+Run `run display-preview` to generate `workspace/built/joystick-display.html`.
+Open it locally for an interactive comparison using the actual firmware frame
+renderer. It is self-contained, uses no network or hardware access, and is regenerated
+from checked-in TypeScript. The renderer and its compass alignments are tested.
+
+Normal-mode diagnostics emit one `CAR_STATE` CSV line per second: state (0 waiting,
+1 active), selected stick (0 left, 1 right), raw LY, raw RX, selected extra axis,
+last drive percent, steering target, maximum cycle interval and maximum individual
+read-group time in milliseconds. These measure software timing, not radio sample
+age or physical input-to-motion latency. `serialDiagnostics=false` disables routine
+telemetry. `run serial 300 controller-timing` captures five minutes (1–600 supported).
 
 ### Guided latency measurement
 
@@ -84,7 +126,7 @@ down/up cues follow 3–4.5 seconds apart. Respond with the LEFT stick as soon a
 direction until the next arrow. M1 follows the actual stick, at the same 20 percent
 cap; M2 stays stopped. Both motors receive stops after the eighth trial. Start a
 fresh capture and restart to repeat. Return the startup call/block to
-`car.startControllerBench()` afterward; normal driving still needs no button.
+`car.startDriving()` afterward; normal driving still needs no button.
 
 Capture with `run serial 120 latency-cues`, then run
 `run latency-report .cache/observations/FILE.jsonl`. Firmware records cue time,
@@ -99,10 +141,11 @@ fully ruled out. Reported positions also have their own update rate; this measur
 encoder-observed response, not exact physical onset. Extra encoder reads and serial
 logging add diagnostic overhead, so compare this with the normal-mode timing.
 
-Both modes now accumulate maximum cycle/read/command durations over each reporting
-window, catching intermittent delays missed by a single sample per second. Normal
-mode shows a top LED for sampled forward demand, bottom for reverse, center for
-neutral; guided mode reserves the LEDs for cues. Serial logging follows motor
+The retained `startControllerBench` diagnostic and the guided test accumulate
+maximum cycle/read/command durations over each reporting window. The old bench
+diagnostic has a top/bottom/center drive indicator; the consolidated program uses
+the selected joystick visualization, and the guided test reserves LEDs for cues.
+Serial logging follows motor
 commands rather than delaying their dispatch. The guided mode retains the same
 native-I2C-stall limitation as continuous driving; its automatic end cannot stop
 motors if execution has stalled before reaching the stop commands.
@@ -128,7 +171,16 @@ latency. The continuous-drive version reduces pauses and removes repeated stops.
 The `continuous-drive` capture shows initial cycle samples of 56–72 ms, receiver
 reads around 10–15 ms, and 0 ms spent commanding motors on unchanged-demand cycles.
 Zero command time does not mean a motor stopped: Nezha retains the last command.
-Perceived latency, smoothness and neutral stopping still need Ben's confirmation.
+Ben confirmed continuous movement felt better, but reported intermittent 500–1000 ms
+delay and unexpected switching. In the `latency-joystick-start` capture, trials 3–8
+were captured completely: cue-to-input was 345–925 ms, input-to-command 10 ms, and
+encoder-observed reversal intervals fell within 0–104 ms. The recorded maximum
+cycle interval was 108 ms, maximum receiver read 16 ms, and motor command 1 ms.
+The first interval includes human reaction and receiver/radio behavior; it does not
+prove that the controller alone adds 200–700 ms. Several short raw-neutral readings
+interrupted held-direction commands. Ben confirmed following the instructions;
+the cause of these readings is unresolved. A later unplug/replug was reported,
+but which connection and whether it affected that run were not established.
 
 Verified on this machine: offline CLI builds of `blink` and `car`, native ARM
 compilation in Docker, a successful USB flash/remount, and Ben's observation of
@@ -357,7 +409,7 @@ Build with `run build motor-test`, flash with `run flash motor-test --confirm`,
 and capture with `run serial 60 motor-test`. Motor movement needs explicit bench
 readiness and a button press. Command transmission is not proof of movement or
 stopping; record the physical observation. The current `car` startup is the
-automatic-start controller bench described above, not the earlier input-only program.
+automatic-start driving program described above, not the earlier input-only program.
 - Source inspection shows CODAL's `NRF52I2C::waitForStop` busy-waits, with a
   nominal 10-second timeout and a separate roughly 1-second STOP recovery wait.
   Its LASTTX workaround can also reset the timeout counter. These are native
@@ -367,17 +419,14 @@ automatic-start controller bench described above, not the earlier input-only pro
 
 ### Remaining sequence
 
-1. Power off; inspect board labels and connections. Receiver goes to IIC.
-2. Flash motionless commissioning firmware and observe its display/buttons.
-3. With wheels lifted and steering linkage clear, test each motor independently
-   at low output, after explicitly enabling a supervised test.
-4. Log controller inputs with motor output disabled; measure center, endpoints,
-   orientation, buttons and dead zones.
-5. Measure steering center and safe travel manually. Check wrap boundaries and
+1. Confirm A/B select the correct display and both axes of each stick have the
+   expected orientation; LX and RY were not calibrated in the earlier control tests.
+2. Investigate brief neutral readings, native I2C stalls and wireless freshness.
+3. Build the chassis and measure steering center and safe travel manually. Check wrap boundaries and
    linkage direction; do not force stops or assume automatic homing is safe.
-6. Validate integrated drive and position steering with neutral startup and low caps;
-   the loose-motor bench now starts automatically at Ben's request.
-7. Test controller power-off, sleep, radio loss and receiver unplugging with
+4. Configure measured steering limits and turn off `looseMotorBench`; verify with
+   wheels raised before driving on the ground.
+5. Test controller power-off, sleep, radio loss and receiver unplugging with
    wheels raised and physical power-off accessible. Record actual output and
    response time; keep fingers away from the mechanism.
 

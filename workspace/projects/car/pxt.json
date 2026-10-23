@@ -1,6 +1,6 @@
 {
     "name": "car",
-    "description": "Eli's Nezha Pro car — supervised loose-motor controller bench",
+    "description": "Eli's Nezha Pro car — continuous drive, position steering, selectable joystick display",
     "dependencies": {
         "core": "*",
         "radio": "*",
@@ -13,6 +13,9 @@
         "main.blocks",
         "car.ts",
         "bench.ts",
+        "settings.ts",
+        "drive.ts",
+        "display.ts",
         "controls.ts",
         "receiver.ts"
     ],

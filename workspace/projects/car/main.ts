@@ -1,1 +1,1 @@
-car.startLatencyTest()
+car.startDriving()

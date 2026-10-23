@@ -21,3 +21,11 @@ test('steering maps stick displacement to measured position, including reversed 
   expect(controls.steeringPosition(2, 80, 100, 135)).toBe(135);
   expect(controls.steeringPosition(-1, 135, 100, 80)).toBe(135);
 });
+
+test('steering calibration rejects missing, out-of-range, nonfinite and ambiguous limits', () => {
+  expect(controls.validSteeringLimits(325, 350, 375)).toBe(true);
+  expect(controls.validSteeringLimits(375, 350, 325)).toBe(true);
+  for (const points of [[0, 0, 0], [0, 100, 200], [100, 0, 110], [NaN, 10, 20], [0, 1, Infinity]]) {
+    expect(controls.validSteeringLimits(...points)).toBe(false);
+  }
+});
