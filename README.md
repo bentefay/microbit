@@ -38,7 +38,8 @@ movement/aim split in FPS controls. Returning the steering stick to center shoul
 request the measured straight-ahead position. It must not merely stop a steering
 motor wherever it happens to be.
 
-`car` now starts the **supervised loose-motor controller bench** in `bench.ts`.
+`car` currently starts the **guided drive-latency test** in `bench.ts` (details below).
+The normal controller mode is `car.startControllerBench()`, with these controls:
 Do not use this mode with wheels or a steering linkage attached.
 
 - Startup: small square, automatic receiver polling, no motor movement until
@@ -72,6 +73,37 @@ Timing diagnostics report `cycle_interval_ms`, `receiver_read_ms`, and
 timing, not radio sample age or physical input-to-motion latency. Waiting/fault
 states emit status messages once per second. `run serial 300 controller-timing`
 keeps a capture open for five minutes (CLI accepts 1–600 seconds).
+
+### Guided latency measurement
+
+Select `car.startLatencyTest()` in `main.ts` (or the matching startup block).
+Build and flash through the usual CLI. With both sticks centered, it shows L and
+waits 30 seconds for logging setup, then displays eight alternating up/down cues
+3–4.5 seconds apart. Respond with the LEFT stick as soon as possible and hold that
+direction until the next arrow. M1 follows the actual stick, at the same 20 percent
+cap; M2 stays stopped. Both motors receive stops after the eighth trial. Restart
+to repeat. Return the startup call/block to `car.startControllerBench()` afterward.
+
+Capture with `run serial 120 latency-cues`, then run
+`run latency-report .cache/observations/FILE.jsonl`. Firmware records cue time,
+left-input receipt, drive-command return, and timestamped M1 encoder samples.
+The report separates cue-to-input (human reaction PLUS controller/receiver delay),
+input-to-command, and an interval containing the first observed encoder movement
+or reversal. Two successive moving samples confirm direction. Pre-positioned
+sticks, missing responses, absent moving baselines, and implausible encoder jumps
+are flagged rather than counted as reliable latency results. The native read API
+does not expose I2C read errors, so plausible but invalid encoder data cannot be
+fully ruled out. Reported positions also have their own update rate; this measures
+encoder-observed response, not exact physical onset. Extra encoder reads and serial
+logging add diagnostic overhead, so compare this with the normal-mode timing.
+
+Both modes now accumulate maximum cycle/read/command durations over each reporting
+window, catching intermittent delays missed by a single sample per second. Normal
+mode shows a top LED for sampled forward demand, bottom for reverse, center for
+neutral; guided mode reserves the LEDs for cues. Serial logging follows motor
+commands rather than delaying their dispatch. The guided mode retains the same
+native-I2C-stall limitation as continuous driving; its automatic end cannot stop
+motors if execution has stalled before reaching the stop commands.
 
 For input-only diagnostics, change the startup call/block back to
 `car.startCommissioning()`: A displays ELI, B shows a tick, and A+B toggles logging.

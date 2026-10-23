@@ -1,1 +1,1 @@
-car.startControllerBench()
+car.startLatencyTest()

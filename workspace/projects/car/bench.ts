@@ -11,6 +11,15 @@ namespace car {
 
     //% blockId=car_start_controller_bench block="start controller bench (loose motors only)"
     export function startControllerBench() {
+        runControllerBench(false)
+    }
+
+    //% blockId=car_start_latency_test block="measure controller latency (loose drive motor only)"
+    export function startLatencyTest() {
+        runControllerBench(true)
+    }
+
+    function runControllerBench(latencyTest: boolean) {
         // 1 waiting for neutral, 2 active, 3 receiver fault (restart to retry).
         let state = 1
         let neutralSamples = 0
@@ -19,6 +28,12 @@ namespace car {
         let lastSteering = 999
         let previousCycle = 0
         let lastTimingReport = 0
+        let maxCycleInterval = 0
+        let maxReadDuration = 0
+        let maxCommandDuration = 0
+        let trial = 0
+        let nextCue = 0
+        let lastRawLeft = 128
         // Nezha can keep running across a micro:bit reset: request stops first.
         nezhaV2.stop(nezhaV2.MotorPostion.M1)
         nezhaV2.stop(nezhaV2.MotorPostion.M2)
@@ -29,16 +44,34 @@ namespace car {
             let cycleStarted = input.runningTime()
             let cycleInterval = previousCycle == 0 ? 0 : cycleStarted - previousCycle
             previousCycle = cycleStarted
-            if (state == 3) {
+            if (state == 3 || state == 4) {
                 if (input.runningTime() - lastTimingReport >= 1000) {
-                    serial.writeLine("BENCH: receiver fault; restart to retry")
+                    serial.writeLine(state == 4 ? "LAT_DONE: motors stopped; restart to repeat" : "BENCH: receiver fault; restart to retry")
                     lastTimingReport = input.runningTime()
                 }
                 basic.pause(100)
                 return
             }
+            if (latencyTest && state == 2 && input.runningTime() >= nextCue) {
+                if (trial >= 8) {
+                    nezhaV2.stop(nezhaV2.MotorPostion.M1)
+                    nezhaV2.stop(nezhaV2.MotorPostion.M2)
+                    state = 4
+                    basic.showIcon(IconNames.SmallSquare, 0)
+                    serial.writeLine("LAT_DONE: motors stopped")
+                    return
+                }
+                trial++
+                let cueDirection = trial % 2 == 1 ? 1 : -1
+                basic.showArrow(cueDirection > 0 ? ArrowNames.North : ArrowNames.South, 0)
+                let cueTime = input.runningTime()
+                serial.writeLine("LAT_CUE," + trial + "," + cueTime + "," + cueDirection + "," + lastRawLeft)
+                nextCue = cueTime + Math.randomRange(3000, 4500)
+            }
             let readStarted = input.runningTime()
             let left = ps2Probe.readByte(PlanetX_Basic.value_A.LY)
+            let leftSeen = input.runningTime()
+            lastRawLeft = left
             let right = -1
             if (left >= 0) right = ps2Probe.readByte(PlanetX_Basic.value_A.RX)
             let readDuration = input.runningTime() - readStarted
@@ -58,9 +91,9 @@ namespace car {
                 else neutralSamples = 0
                 if (neutralSamples >= 3) {
                     // Reads the current encoder position; no homing or zero/reset command.
-                    center = nezhaV2.readAbsAngle(nezhaV2.MotorPostion.M2)
+                    center = latencyTest ? 0 : nezhaV2.readAbsAngle(nezhaV2.MotorPostion.M2)
                     // Angle-motion speed is separate from M1's continuous start command.
-                    nezhaV2.setServoSpeed(steeringSpeed)
+                    if (!latencyTest) nezhaV2.setServoSpeed(steeringSpeed)
                     state = 2
                     lastDrive = 999
                     lastSteering = 999
@@ -68,6 +101,12 @@ namespace car {
                     basic.showIcon(IconNames.Yes)
                     serial.writeValue("steering_center_deg", center)
                     serial.writeLine("BENCH: ACTIVE; left Y drive, right X steering; power switch stops")
+                    if (latencyTest) {
+                        basic.showString("L", 500)
+                        nextCue = input.runningTime() + 30000
+                        serial.writeLine("LAT_WAIT: 30 seconds; then follow arrows with LEFT stick; hold until next arrow. 8 cues, automatic stop.")
+                    }
+                    previousCycle = 0
                 } else if (input.runningTime() - lastTimingReport >= 1000) {
                     serial.writeLine("BENCH: waiting for centered sticks")
                     serial.writeValue("leftY_raw", left)
@@ -77,32 +116,58 @@ namespace car {
                 basic.pause(100)
                 return
             }
-            if (drive != lastDrive || steering != lastSteering) {
-                serial.writeValue("input_seen_ms", input.runningTime())
-                serial.writeValue("leftY_raw", left)
-                serial.writeValue("rightX_raw", right)
-                serial.writeValue("drive_pct", drive)
-                serial.writeValue("steering_offset_deg", steering)
-            }
+            // Guided test stays stopped before the first cue, then uses the real stick.
+            if (latencyTest && trial == 0) drive = 0
+            let inputSeen = input.runningTime()
+            let changed = drive != lastDrive || steering != lastSteering
             let commandStarted = input.runningTime()
             if (drive != lastDrive) {
+                // Non-blocking receipt indicator: top forward, bottom reverse, middle neutral.
+                if (!latencyTest) {
+                    basic.clearScreen()
+                    led.plot(2, drive > 0 ? 0 : drive < 0 ? 4 : 2)
+                }
                 if (drive == 0) nezhaV2.stop(nezhaV2.MotorPostion.M1)
                 else nezhaV2.start(nezhaV2.MotorPostion.M1, drive)
                 lastDrive = drive
             }
+            let driveCommandReturned = input.runningTime()
             // Only appropriate for loose motors: shortest-path modulo positioning.
-            if (steering != lastSteering) {
+            if (!latencyTest && steering != lastSteering) {
                 let target = (Math.round(center + steering) + 360) % 360
                 nezhaV2.moveToAbsAngle(nezhaV2.MotorPostion.M2, nezhaV2.ServoMotionMode.ShortPath,
                     target, nezhaV2.DelayMode.NoDelay)
                 lastSteering = steering
             }
             let commandDuration = input.runningTime() - commandStarted
+            if (latencyTest) {
+                let angle = nezhaV2.readAngle(nezhaV2.MotorPostion.M1)
+                serial.writeLine("LAT_SAMPLE," + trial + "," + leftSeen + "," + left + "," + drive + "," + driveCommandReturned + "," + input.runningTime() + "," + angle)
+                lastSteering = steering
+            }
+            maxCycleInterval = Math.max(maxCycleInterval, cycleInterval)
+            maxReadDuration = Math.max(maxReadDuration, readDuration)
+            maxCommandDuration = Math.max(maxCommandDuration, commandDuration)
+            // Log after commanding motors so UART backpressure cannot delay this command.
+            if (changed) {
+                serial.writeValue("input_seen_ms", inputSeen)
+                serial.writeValue("drive_command_returned_ms", driveCommandReturned)
+                serial.writeValue("leftY_raw", left)
+                serial.writeValue("rightX_raw", right)
+                serial.writeValue("drive_pct", drive)
+                serial.writeValue("steering_offset_deg", steering)
+            }
             if (input.runningTime() - lastTimingReport >= 1000) {
                 serial.writeValue("cycle_interval_ms", cycleInterval)
                 serial.writeValue("receiver_read_ms", readDuration)
                 serial.writeValue("motor_command_ms", commandDuration)
+                serial.writeValue("max_cycle_interval_ms", maxCycleInterval)
+                serial.writeValue("max_receiver_read_ms", maxReadDuration)
+                serial.writeValue("max_motor_command_ms", maxCommandDuration)
                 lastTimingReport = input.runningTime()
+                maxCycleInterval = 0
+                maxReadDuration = 0
+                maxCommandDuration = 0
             }
             basic.pause(controlPauseMs)
         })

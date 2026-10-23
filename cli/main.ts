@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { inspectSource, lockNativeSources, resolveCommit } from './sources';
 import { captureSerial } from './serial';
+import { latencyReport } from './latency';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -205,6 +206,7 @@ const help = `micro:bit workspace — run COMMAND
   pxt PROJECT ARGS...           Run a PXT diagnostic in the offline container
   device                       Inspect USB and verified MICROBIT mount
   serial [SECONDS] [LABEL]     Capture serial in Docker; save timestamped local logs
+  latency-report FILE          Analyze guided cue/input/command/encoder timestamps
   flash PROJECT --confirm      Explicitly transfer existing HEX; never builds
   test                         Run TypeScript CLI tests
   env lock                     Resolve devenv lock through the normal devenv flow
@@ -267,6 +269,12 @@ export async function main(args: string[]) {
       }
       case 'device': console.log(JSON.stringify(await mount(), null, 2)); break;
       case 'serial': await serial(arg, rest[0]); break;
+      case 'latency-report': {
+        if (!arg) throw new Error('Use run latency-report PATH-TO-CAPTURE.jsonl');
+        console.table(latencyReport(await readFile(resolve(arg), 'utf8')));
+        console.log('Cue-to-input includes human reaction and radio/receiver delay. Encoder ranges describe reported position samples, not exact physical onset.');
+        break;
+      }
       case 'flash': await flash(projectName(arg), rest.includes('--confirm')); break;
       case 'new': {
         const name = projectName(arg);

@@ -45,6 +45,7 @@ export async function captureSerial(argv: string[], directory: string, label: st
       for (const line of parser.push(decoder.decode(chunk, { stream: true }))) {
         const ms = Math.round(performance.now() - start);
         await write({ type: 'line', ms, line });
+        if (line.startsWith('LAT_SAMPLE,')) continue; // Preserve full-rate encoder data without flooding the terminal.
         const match = /^(leftY_raw|rightX_raw):\s*(-?\d+)$/.exec(line);
         if (match) {
           const [, axis, raw] = match;
