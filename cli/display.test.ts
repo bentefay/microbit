@@ -5,14 +5,16 @@ import { root } from './main';
 const js = new Bun.Transpiler({ loader: 'ts' }).transformSync(readFileSync(join(root, 'workspace/projects/car/display.ts'), 'utf8'));
 const display = new Function(js + '\nreturn joystickDisplay;')();
 
-test('moving dot covers the full matrix, keeps a center reference, and blends subpixel positions', () => {
+test('moving dot lights only its position, clears the center when moved away, and blends subpixel positions', () => {
   expect(display.frame(0, 0, 0, false)[12]).toBe(255);
   expect(display.frame(-1, -1, 0, false)[20]).toBe(255);
   expect(display.frame(1, 1, 0, false)[4]).toBe(255);
   const halfway = display.frame(0.25, 0, 0, false);
   expect(halfway[12]).toBe(128);
   expect(halfway[13]).toBe(128);
-  expect(display.frame(1, 0, 0, false)[12]).toBeGreaterThan(0);
+  const right = display.frame(1, 0, 0, false);
+  expect(right[12]).toBe(0);
+  expect(right.filter((v: number) => v > 0)).toEqual([255]);
 });
 
 test('coarse/fine rings align at all eight compass directions and retain pointers when radius overlaps', () => {

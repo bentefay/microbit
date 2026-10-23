@@ -92,8 +92,9 @@ around 68–72 ms. Visual orientation of both sticks and physical steering calib
 still require confirmation; serial output alone does not verify motor behavior.
 
 - `0` (default): a bright dot represents direction and deflection on the full 5×5
-  matrix, blending neighboring LEDs for intermediate positions. A dim center dot
-  remains as a reference. No separate radius scale is needed.
+  matrix, blending neighboring LEDs for intermediate positions. There is no fixed
+  center light; the center lights only when included in the joystick dot. No separate
+  radius scale is needed.
 - `1`: Ben's coarse/fine polar encoding. Outer-ring direction uses 16 positions;
   the eight-position inner pointer rotates nine times per joystick revolution.
   Both pointers and the center align at every cardinal and diagonal direction.

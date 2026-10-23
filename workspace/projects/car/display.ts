@@ -6,14 +6,13 @@ namespace joystickDisplay {
         let pixels: number[] = []
         for (let i = 0; i < 25; i++) pixels.push(0)
         if (style == 0) {
-            // Bilinear blending represents sub-pixel movement, with a dim center reference.
-            pixels[12] = 12
+            // Bilinear blending lights only the joystick position and its neighbors.
             let px = 2 + 2 * x
             let py = 2 - 2 * y
             for (let row = 0; row < 5; row++) {
                 for (let col = 0; col < 5; col++) {
                     let weight = Math.max(0, 1 - Math.abs(col - px)) * Math.max(0, 1 - Math.abs(row - py))
-                    pixels[row * 5 + col] = Math.max(pixels[row * 5 + col], Math.round(255 * weight))
+                    pixels[row * 5 + col] = Math.round(255 * weight)
                 }
             }
             return pixels
