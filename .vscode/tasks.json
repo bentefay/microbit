@@ -1,0 +1,8 @@
+{
+  "version": "2.0.0",
+  "tasks": [{
+    "label": "PXT build car", "type": "process", "command": "${workspaceFolder}/cli/bin/run",
+    "args": ["build", "car"], "group": {"kind":"build","isDefault":true},
+    "problemMatcher": {"owner":"pxt","fileLocation":["relative","${workspaceFolder}/workspace/projects/car"],"pattern":{"regexp":"^(.*)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(TS\\d+):\\s+(.*)$","file":1,"line":2,"column":3,"severity":4,"code":5,"message":6}}
+  }]
+}

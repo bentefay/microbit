@@ -1,0 +1,6 @@
+{
+  "name": "microbit-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test cli" }
+}

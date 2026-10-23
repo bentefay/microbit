@@ -1,0 +1,12 @@
+{
+  "name": "microbit-toolchain",
+  "private": true,
+  "dependencies": {
+    "pxt": "0.5.1",
+    "pxt-microbit": "9.1.1"
+  },
+  "overrides": {
+    "@blockly/field-grid-dropdown": { "blockly": "13.1.1" },
+    "@blockly/plugin-workspace-search": { "blockly": "13.1.1" }
+  }
+}

@@ -1,0 +1,12 @@
+{
+    "name": "blink",
+    "disableHistory": true,
+    "dependencies": {
+        "core": "*",
+        "microphone": "*"
+    },
+    "files": [
+        "main.ts"
+    ],
+    "preferredEditor": "tsprj"
+}

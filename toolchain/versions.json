@@ -1,0 +1,23 @@
+{
+  "nodeImage": "node@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d",
+  "safeChain": "1.5.10",
+  "safeChainSha256": "3d45ff814e283fc94713a11d67cd27aaea68f598e5bfd79bddfc5d11493f7174",
+  "architecture": "linux/amd64",
+  "sources": {
+    "pxt-nezha2": {
+      "repo": "elecfreaks/pxt-nezha2",
+      "tag": "v1.2.6",
+      "rev": "1f37a92026cc53197fce86eb7c0e330caf9bb864"
+    },
+    "pxt-PlanetX": {
+      "repo": "elecfreaks/pxt-PlanetX",
+      "tag": "v1.6.9",
+      "rev": "7bf603d7b17b994188b1993afe306e2ba86002a0"
+    },
+    "pxt-PlanetX-AI": {
+      "repo": "elecfreaks/pxt-PlanetX-AI",
+      "tag": "v1.1.1",
+      "rev": "8ca01ab552efe04a17211586bddef0a813ae49e6"
+    }
+  }
+}

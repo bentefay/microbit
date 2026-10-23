@@ -1,0 +1,20 @@
+{
+    "name": "car",
+    "description": "Eli's Nezha Pro car — commissioning firmware; motors disabled",
+    "dependencies": {
+        "core": "*",
+        "radio": "*",
+        "pxt-nezha2": "*",
+        "pxt-PlanetX": "*",
+        "microphone": "*"
+    },
+    "files": [
+        "main.ts",
+        "main.blocks",
+        "car.ts",
+        "controls.ts",
+        "receiver.ts"
+    ],
+    "preferredEditor": "blocksprj",
+    "disableHistory": true
+}

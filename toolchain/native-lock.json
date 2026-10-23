@@ -1,0 +1,29 @@
+[
+  {
+    "name": "samples",
+    "repo": "lancaster-university/microbit-v2-samples",
+    "rev": "490a890626674aa859a2f9f19d96dc8e2367f137",
+    "tag": "v0.2.13"
+  },
+  {
+    "name": "target",
+    "repo": "lancaster-university/codal-microbit-v2",
+    "rev": "f5d1682fc3882022d3d5a7facb1fddb4b0ea7b52",
+    "tag": "v0.3.5"
+  },
+  {
+    "name": "codal-core",
+    "repo": "lancaster-university/codal-core",
+    "rev": "e6b061f2a6d8977811e3025da387d3007e5796f2"
+  },
+  {
+    "name": "codal-nrf52",
+    "repo": "lancaster-university/codal-nrf52",
+    "rev": "1fbb7240290fe36a55c61378f5cdeb7640f3ec4a"
+  },
+  {
+    "name": "codal-microbit-nrf5sdk",
+    "repo": "microbit-foundation/codal-microbit-nrf5sdk",
+    "rev": "4b8abc690f6c9fca6132e6db5ee13a795a263f88"
+  }
+]

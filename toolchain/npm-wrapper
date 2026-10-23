@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+unset PKG_EXECPATH
+export PATH="/opt/shadow:$PATH"
+exec /opt/safe-chain/safe-chain "$(basename "$0")" "$@"
