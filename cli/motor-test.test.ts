@@ -18,7 +18,7 @@ test('loose motor test makes no startup motion and only sends bounded relative m
   buttons.B();
   buttons.AB();
   expect(calls).toEqual([
-    ['move', 1, 15, 1, 20, 2, 0], ['stop', 1],
-    ['move', 1, 15, 2, 20, 2, 0], ['stop', 1], ['stop', 1],
+    ['move', 2, 15, 1, 20, 2, 0], ['stop', 2],
+    ['move', 2, 15, 2, 20, 2, 0], ['stop', 2], ['stop', 2],
   ]);
 });

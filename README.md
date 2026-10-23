@@ -246,13 +246,20 @@ with this receiver API. Do not claim otherwise from a readiness timeout.
 
 `motor-test` is separate from the car firmware and has no receiver reads.
 Use it only with one loose motor, no wheels/linkage, and the PS2 receiver
-disconnected. `testPort` in `main.ts` selects the port (initially M1).
+disconnected. `testPort` in `main.ts` selects the port (currently M2).
 It makes no motor commands on startup. Button A requests 20 degrees clockwise
 at 15 percent; B requests 20 degrees counterclockwise. A+B requests a stop.
 The finite angle is sent to Nezha in its movement command; no homing or absolute
 angle is used. An additional stop is sent one second later. Keep the physical
 Nezha power switch accessible: these commands do not establish a reliable
 software emergency stop or independently adjustable torque limit.
+
+The first loose motor on M1 passed small movements in both directions and
+stopping, confirmed by Ben. The `motor-one` capture records the commands and
+additional stop requests. Ben made several presses/holds, accounting for
+repeated requests. The movement triggers on button **release** (MakeCode uses
+a click event), and hold duration does not change the finite angle. The second
+motor/M2 test is pending.
 
 Build with `run build motor-test`, flash with `run flash motor-test --confirm`,
 and capture with `run serial 60 motor-test`. Motor movement needs explicit bench

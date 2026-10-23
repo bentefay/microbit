@@ -1,9 +1,9 @@
 // Loose-motor bench test only. Receiver disconnected; no wheels/linkage attached.
 // This sends a finite relative-angle request to Nezha, not an open-ended start.
-let testPort = nezhaV2.MotorPostion.M1
+let testPort = nezhaV2.MotorPostion.M2
 let busy = false
 basic.showIcon(IconNames.SmallSquare)
-serial.writeLine("MOTOR TEST: M1; 20 degrees at 15 percent; A forward, B reverse. No startup motion.")
+serial.writeLine("MOTOR TEST: M2; 20 degrees at 15 percent; A forward, B reverse. No startup motion.")
 
 function jog(direction: nezhaV2.MovementDirection) {
     if (busy) return
