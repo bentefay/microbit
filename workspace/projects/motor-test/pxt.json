@@ -1,0 +1,13 @@
+{
+    "name": "motor-test",
+    "dependencies": {
+        "core": "*",
+        "pxt-nezha2": "*",
+        "microphone": "*"
+    },
+    "files": [
+        "main.ts"
+    ],
+    "preferredEditor": "tsprj",
+    "disableHistory": true
+}

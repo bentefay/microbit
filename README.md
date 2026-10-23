@@ -232,6 +232,32 @@ with this receiver API. Do not claim otherwise from a readiness timeout.
   tick and button A display. Diagnostic firmware now stops polling after the
   first failed read and requires a manual retry; this avoids continued polling
   across a known disconnection, but does not fix or bound the native I2C call.
+- The updated diagnostic passed the unplug stage: `fault-stop-check` logged
+  a failed read at 45.4 seconds, the polling-stopped message at 46.0 seconds,
+  and continued fault-state heartbeats at 46.9, 52.0 and 57.0 seconds. Ben
+  confirmed the X display and reconnected the receiver. Manual retry is the
+  next verification step; this does not demonstrate a motor failsafe.
+- Manual retry subsequently succeeded: `manual-retry` contains 316 samples
+  per axis, all 128, with no read failures after A+B. The firmware remained
+  responsive after reconnection with polling stopped. Neither that result nor
+  the heartbeat proves a bound on an individual native I2C operation.
+
+### Isolated loose-motor test
+
+`motor-test` is separate from the car firmware and has no receiver reads.
+Use it only with one loose motor, no wheels/linkage, and the PS2 receiver
+disconnected. `testPort` in `main.ts` selects the port (initially M1).
+It makes no motor commands on startup. Button A requests 20 degrees clockwise
+at 15 percent; B requests 20 degrees counterclockwise. A+B requests a stop.
+The finite angle is sent to Nezha in its movement command; no homing or absolute
+angle is used. An additional stop is sent one second later. Keep the physical
+Nezha power switch accessible: these commands do not establish a reliable
+software emergency stop or independently adjustable torque limit.
+
+Build with `run build motor-test`, flash with `run flash motor-test --confirm`,
+and capture with `run serial 60 motor-test`. Motor movement needs explicit bench
+readiness and a button press. Command transmission is not proof of movement or
+stopping; record the physical observation. Restore `car` firmware after testing.
 - Source inspection shows CODAL's `NRF52I2C::waitForStop` busy-waits, with a
   nominal 10-second timeout and a separate roughly 1-second STOP recovery wait.
   Its LASTTX workaround can also reset the timeout counter. These are native
