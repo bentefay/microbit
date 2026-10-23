@@ -236,3 +236,27 @@ Removing the third axis speeds the loop but does not resolve the symptom. Next
 comparison is profile 3 (two A presses from profile 1): same two axes/order and
 explicit loop pause, adding a 10 ms command-to-response pause. A larger timing
 change is tested first; profile 2's 2 ms pause can refine it if improvement is seen.
+
+## Related public reports found in the broader search
+
+The lack of an exact EF05068 match must not be described as an absence of any
+discussion of similar problems. Broader searches found these firsthand accounts:
+
+- [Arduino Forum: spikes in PS2 joystick readings (2021)](https://forum.arduino.cc/t/help-spikes-in-ps2-joystick-readings/871577):
+  a user logs simultaneous 255 spikes from both stationary sticks on a wireless
+  non-Sony controller, causing motor jerks. This is an analogous data-integrity
+  symptom, not the same direction/center behavior or confirmed hardware.
+- [Stefan Fambach's PS2 board experiments (2019)](https://www.fambach.net/arduino-ps2-controller-platine-grundlagen/#Unkontrollierte_Tastendruecke):
+  the author reports false all-buttons-pressed indications when omitting a 50 ms
+  loop delay, resolved by restoring it. His receiver uses DAT/CMD/SEL/CLK with
+  PS2X, not our documented IIC command interface. A 50 ms delay is not established
+  as a requirement for our device.
+- [Arduino Forum: controller connection detection (2023)](https://forum.arduino.cc/t/ps2-controller-ps2x-library-check-if-controller-is-connected/1104160):
+  a user reports the same command values with the controller on/off and difficulty
+  detecting wireless connection loss. Their suggested workaround is not adopted.
+
+These sources justify examining timing and freshness, but do not identify the
+EF05068's internal hardware/firmware or prove a shared cause. Our measured 64–81 ms
+whole cycles already exceed 50 ms; individual axis requests within each cycle
+are much closer together. Whether those requests trigger internal controller polls
+is still unknown. No exact-product matching discussion was found in this search.
