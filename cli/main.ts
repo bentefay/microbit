@@ -117,7 +117,7 @@ async function mount() {
 async function serial(seconds = '10', label = 'capture') {
   projectName(label);
   const duration = Number(seconds);
-  if (!Number.isInteger(duration) || duration < 1 || duration > 60) throw new Error('Serial duration must be 1–60 seconds');
+  if (!Number.isInteger(duration) || duration < 1 || duration > 600) throw new Error('Serial duration must be 1–600 seconds');
   const usb = await devices();
   if (usb.length !== 1) throw new Error('Expected one micro:bit');
   const matches: string[] = [];

@@ -2,66 +2,53 @@
 namespace car {
     // Bench settings: measured axes 0/128/255, provisional dead zone 8.
     const driveCap = 20
-    const driveStepDegrees = 20
     const steeringTravel = 45
+    const steeringSpeed = 15
+    const controlPauseMs = 20
     const deadZone = 8
     const invertDrive = true
     const invertSteering = false
 
     //% blockId=car_start_controller_bench block="start controller bench (loose motors only)"
     export function startControllerBench() {
-        // 0 disarmed, 1 waiting for neutral, 2 armed, 3 receiver fault.
-        let state = 0
+        // 1 waiting for neutral, 2 active, 3 receiver fault (restart to retry).
+        let state = 1
         let neutralSamples = 0
         let center = 0
-        let outputsPending = false
         let lastDrive = 999
         let lastSteering = 999
+        let previousCycle = 0
+        let lastTimingReport = 0
+        // Nezha can keep running across a micro:bit reset: request stops first.
+        nezhaV2.stop(nezhaV2.MotorPostion.M1)
+        nezhaV2.stop(nezhaV2.MotorPostion.M2)
         basic.showIcon(IconNames.SmallSquare)
-        serial.writeLine("BENCH: loose motors only. M1 drive, M2 steering, receiver IIC. A arms from neutral; B disarms. Radio freshness UNKNOWN.")
-
-        // A function-valued local is captured correctly by this pinned PXT compiler.
-        // A nested function declaration was emitted as an out-of-scope stack read
-        // in the forever callback and caused native panic 980 on startup.
-        let stopOutputs = function () {
-            if (outputsPending) {
-                nezhaV2.stop(nezhaV2.MotorPostion.M1)
-                nezhaV2.stop(nezhaV2.MotorPostion.M2)
-                outputsPending = false
-            }
-        }
-
-        input.onButtonPressed(Button.A, function () {
-            if (state == 2) return
-            state = 1
-            neutralSamples = 0
-            basic.showIcon(IconNames.SmallSquare)
-            serial.writeLine("BENCH: waiting for both sticks centered")
-        })
-        input.onButtonPressed(Button.B, function () {
-            state = 0
-            neutralSamples = 0
-            basic.showIcon(IconNames.SmallSquare)
-            serial.writeLine("BENCH: disarm requested; physical power-off remains available")
-        })
+        serial.writeLine("BENCH: loose motors only. M1 drive, M2 steering, receiver IIC. Center sticks to start; no buttons. Power switch stops. Radio freshness UNKNOWN.")
 
         basic.forever(function () {
-            // End the previous pulse BEFORE another potentially blocking receiver read.
-            // Commands themselves specify finite angles if this fiber cannot run again.
-            stopOutputs()
-            if (state == 0 || state == 3) {
+            let cycleStarted = input.runningTime()
+            let cycleInterval = previousCycle == 0 ? 0 : cycleStarted - previousCycle
+            previousCycle = cycleStarted
+            if (state == 3) {
+                if (input.runningTime() - lastTimingReport >= 1000) {
+                    serial.writeLine("BENCH: receiver fault; restart to retry")
+                    lastTimingReport = input.runningTime()
+                }
                 basic.pause(100)
                 return
             }
+            let readStarted = input.runningTime()
             let left = ps2Probe.readByte(PlanetX_Basic.value_A.LY)
             let right = -1
             if (left >= 0) right = ps2Probe.readByte(PlanetX_Basic.value_A.RX)
-            // A button event may have disarmed during a yielding read.
-            if (state == 0) return
+            let readDuration = input.runningTime() - readStarted
             if (left < 0 || right < 0) {
                 state = 3
+                // Best effort: a native I2C stall can prevent this code being reached.
+                nezhaV2.stop(nezhaV2.MotorPostion.M1)
+                nezhaV2.stop(nezhaV2.MotorPostion.M2)
                 basic.showIcon(IconNames.No)
-                serial.writeLine("BENCH: receiver fault; polling stopped. A retries from neutral.")
+                serial.writeLine("BENCH: receiver fault; polling stopped. Restart with sticks centered to retry.")
                 return
             }
             let drive = carControls.drivePercent(carControls.axis(left, 0, 128, 255, deadZone, invertDrive), driveCap)
@@ -72,42 +59,52 @@ namespace car {
                 if (neutralSamples >= 3) {
                     // Reads the current encoder position; no homing or zero/reset command.
                     center = nezhaV2.readAbsAngle(nezhaV2.MotorPostion.M2)
-                    if (state != 1) return
+                    // Angle-motion speed is separate from M1's continuous start command.
+                    nezhaV2.setServoSpeed(steeringSpeed)
                     state = 2
                     lastDrive = 999
                     lastSteering = 999
+                    lastTimingReport = 0
                     basic.showIcon(IconNames.Yes)
                     serial.writeValue("steering_center_deg", center)
-                    serial.writeLine("BENCH: ARMED; left Y drive, right X steering; B disarms")
+                    serial.writeLine("BENCH: ACTIVE; left Y drive, right X steering; power switch stops")
+                } else if (input.runningTime() - lastTimingReport >= 1000) {
+                    serial.writeLine("BENCH: waiting for centered sticks")
+                    serial.writeValue("leftY_raw", left)
+                    serial.writeValue("rightX_raw", right)
+                    lastTimingReport = input.runningTime()
                 }
                 basic.pause(100)
                 return
             }
             if (drive != lastDrive || steering != lastSteering) {
+                serial.writeValue("input_seen_ms", input.runningTime())
+                serial.writeValue("leftY_raw", left)
+                serial.writeValue("rightX_raw", right)
                 serial.writeValue("drive_pct", drive)
                 serial.writeValue("steering_offset_deg", steering)
+            }
+            let commandStarted = input.runningTime()
+            if (drive != lastDrive) {
+                if (drive == 0) nezhaV2.stop(nezhaV2.MotorPostion.M1)
+                else nezhaV2.start(nezhaV2.MotorPostion.M1, drive)
                 lastDrive = drive
-                lastSteering = steering
-            }
-            // Vendor speed setting is shared: set once per cycle, not per motor.
-            // Steering consequently slows with small nonzero drive demand.
-            nezhaV2.setServoSpeed(drive == 0 ? 15 : Math.abs(drive))
-            if (state != 2) return
-            outputsPending = true
-            if (drive != 0) {
-                nezhaV2.__move(nezhaV2.MotorPostion.M1,
-                    drive > 0 ? nezhaV2.MovementDirection.CW : nezhaV2.MovementDirection.CCW,
-                    driveStepDegrees, nezhaV2.SportsMode.Degree)
-            }
-            if (state != 2) {
-                stopOutputs()
-                return
             }
             // Only appropriate for loose motors: shortest-path modulo positioning.
-            let target = (Math.round(center + steering) + 360) % 360
-            nezhaV2.moveToAbsAngle(nezhaV2.MotorPostion.M2, nezhaV2.ServoMotionMode.ShortPath,
-                target, nezhaV2.DelayMode.NoDelay)
-            basic.pause(100)
+            if (steering != lastSteering) {
+                let target = (Math.round(center + steering) + 360) % 360
+                nezhaV2.moveToAbsAngle(nezhaV2.MotorPostion.M2, nezhaV2.ServoMotionMode.ShortPath,
+                    target, nezhaV2.DelayMode.NoDelay)
+                lastSteering = steering
+            }
+            let commandDuration = input.runningTime() - commandStarted
+            if (input.runningTime() - lastTimingReport >= 1000) {
+                serial.writeValue("cycle_interval_ms", cycleInterval)
+                serial.writeValue("receiver_read_ms", readDuration)
+                serial.writeValue("motor_command_ms", commandDuration)
+                lastTimingReport = input.runningTime()
+            }
+            basic.pause(controlPauseMs)
         })
     }
 }

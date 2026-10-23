@@ -41,27 +41,37 @@ motor wherever it happens to be.
 `car` now starts the **supervised loose-motor controller bench** in `bench.ts`.
 Do not use this mode with wheels or a steering linkage attached.
 
-- Startup: small square, disarmed, no motor commands or receiver reads.
-- Center both sticks and tap micro:bit **A**. Three neutral samples are required;
-  the current M2 encoder position becomes the bench center. Tick means armed.
-- Left Y controls signed M1 drive, capped at 20 percent. Each request is a finite
-  20-degree move, interrupted by an additional stop after a 100 ms yield. Motion
-  may pulse; physical speed linearity has not yet been measured.
+- Startup: small square, automatic receiver polling, no motor movement until
+  three centered-stick samples. No button presses are needed. The current M2
+  encoder position becomes the bench center. Tick means control is active.
+- Left Y controls continuous signed M1 speed, capped at 20 percent. Speed commands
+  are sent only when demand changes; centering the stick sends a stop. Physical
+  speed linearity has not yet been measured.
 - Right X selects M2 position within ±45 degrees of the captured center, returning
   toward center when released. This is a loose-shaft sweep, not a measured linkage
-  limit. The vendor's shortest-path absolute positioning wraps modulo 360.
-- **B** disarms; the loop sends stops when it can next run. This is not a guaranteed
-  emergency stop during a native I2C stall. Keep physical power-off accessible.
-- A read failure shows X and stops polling. **A** explicitly retries from neutral.
+  limit. The vendor's shortest-path absolute positioning wraps modulo 360. Targets
+  update only on change, with no repeated stops. Angular-movement speed is 15 percent.
+- The micro:bit buttons do not arm or disarm this version. Use Nezha power-off
+  to stop the motors. A is left and B is right when facing the LED display.
+- A read failure shows X and stops polling. Restart to retry with centered sticks.
   Receiver readiness still does not prove fresh radio data. Repeated stale values
-  could keep issuing finite commands, so this is not a radio-loss failsafe.
+  can sustain drive demand, so this is not a radio-loss failsafe.
 
-The loop stops previous outputs before reading the receiver again. Finite movement
-requests limit requested travel if the loop stalls; they do not establish a stopping
-time or guarantee against motor-controller faults. The vendor speed setting is shared,
-so steering uses the drive speed magnitude when driving, or 15 percent when drive is
-neutral. Small throttle can therefore slow steering. Settings, axis inversions and the
-provisional eight-count dead zone are at the top of `bench.ts`.
+At Ben's request, continuous drive replaces the earlier finite-angle pulse test.
+**A native I2C stall can now leave the drive motor running until Nezha power-off.**
+Stops are requested on startup (Nezha may retain motion across micro:bit resets)
+and when a failed receiver read returns, but blocked I2C can prevent those commands.
+The active loop yields for 20 ms, plus MakeCode scheduling and I2C time. Continuous
+drive has its own per-motor speed command; the angular-movement speed setting is
+set once for steering instead of following throttle. Settings, axis inversions and
+the provisional eight-count dead zone are at the top of `bench.ts`.
+
+Timing diagnostics report `cycle_interval_ms`, `receiver_read_ms`, and
+`motor_command_ms` once per second while active. Changed commands also report
+`input_seen_ms` (device uptime) and the observed raw axes. These measure software
+timing, not radio sample age or physical input-to-motion latency. Waiting/fault
+states emit status messages once per second. `run serial 300 controller-timing`
+keeps a capture open for five minutes (CLI accepts 1–600 seconds).
 
 For input-only diagnostics, change the startup call/block back to
 `car.startCommissioning()`: A displays ELI, B shows a tick, and A+B toggles logging.
@@ -71,8 +81,17 @@ separate checks. The first controller-bench image panicked with 980 on startup.
 Generated ARM code showed the nested `stopOutputs` declaration being called through
 an out-of-scope stack slot in the forever callback. Changing it to a function-valued
 local makes the compiler capture it in the closure instead (verified in assembly).
-Host tests did not expose this native compiler behavior. Hardware retry and integrated
-controller/motor validation are pending.
+Host tests did not expose this native compiler behavior. Ben subsequently confirmed
+the corrected firmware mostly works with the controller, establishing recovery from
+the startup panic. He reported approximately 500 ms perceived input-to-motion delay
+and alternating steering movement on repeated left taps. Timing and held-stick
+behavior are under investigation; integrated control is not yet fully validated.
+Ben then confirmed automatic startup worked well, but still perceived around
+500 ms delay and requested continuous drive. The preceding `controller-timing`
+capture measured mostly 140 ms cycles, roughly 10 ms receiver reads and 7–8 ms
+motor commands. Those are software timings, not an explanation of all perceived
+latency. The continuous-drive version reduces pauses and removes repeated stops;
+its hardware timing and behavior are being checked separately.
 
 Verified on this machine: offline CLI builds of `blink` and `car`, native ARM
 compilation in Docker, a successful USB flash/remount, and Ben's observation of
@@ -253,7 +272,8 @@ with this receiver API. Do not claim otherwise from a readiness timeout.
   around reconnection. A subsequent 60-second `reconnect` capture was empty,
   and Ben reported no button B response. A brief reset press did not restore
   display/button behavior. This does not establish reliable receiver recovery or
-  justify chassis operation; the later loose-motor test uses finite motion requests.
+  justify chassis operation. The first loose-motor test used finite requests;
+  the current continuous-drive bench has the additional limitation described above.
 - A full power cycle (Nezha off and micro:bit USB disconnected) restored the
   tick and button A display. Diagnostic firmware now stops polling after the
   first failed read and requires a manual retry; this avoids continued polling
@@ -300,7 +320,7 @@ Build with `run build motor-test`, flash with `run flash motor-test --confirm`,
 and capture with `run serial 60 motor-test`. Motor movement needs explicit bench
 readiness and a button press. Command transmission is not proof of movement or
 stopping; record the physical observation. The current `car` startup is the
-disarmed controller bench described above, not the earlier input-only program.
+automatic-start controller bench described above, not the earlier input-only program.
 - Source inspection shows CODAL's `NRF52I2C::waitForStop` busy-waits, with a
   nominal 10-second timeout and a separate roughly 1-second STOP recovery wait.
   Its LASTTX workaround can also reset the timeout counter. These are native
@@ -318,7 +338,8 @@ disarmed controller bench described above, not the earlier input-only program.
    orientation, buttons and dead zones.
 5. Measure steering center and safe travel manually. Check wrap boundaries and
    linkage direction; do not force stops or assume automatic homing is safe.
-6. Integrate drive and position steering with explicit arming and low caps.
+6. Validate integrated drive and position steering with neutral startup and low caps;
+   the loose-motor bench now starts automatically at Ben's request.
 7. Test controller power-off, sleep, radio loss and receiver unplugging with
    wheels raised and physical power-off accessible. Record actual output and
    response time; keep fingers away from the mechanism.
