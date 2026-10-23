@@ -172,3 +172,27 @@ run flash car --confirm
 Source inspection is reproducible with `run research HTTPS-URL [TEXT]`. It uses
 only Bun's built-in fetch, allows explicit public GitHub/ELECFREAKS hosts, saves
 URL/time/body/hash under `.cache/research/`, and never executes downloaded content.
+
+## Full-rate circle baseline
+
+Capture `2026-10-23T23-05-37-628Z-receiver-circle-baseline-f5ab4d75.jsonl`:
+Ben reported starting continuous full-deflection rotation before the 30-second
+recording; instructed to stop after completion. Profile 0 throughout, motors stopped.
+
+- 377 complete XY frames, 1,133 complete read records. Partial terminal line excluded;
+  independent read records at capture boundaries need not form complete frames.
+- Actual frame intervals 76–81 ms, median 80 ms; no long software-loop pause.
+- Longest unchanged XY observation spanned 1,013 ms. Longest interval between
+  observed XY changes was 1,092 ms. End-stop saturation/quantization can also
+  repeat values, so these spans alone do not establish radio packet age.
+- Both axes returned exactly 128 in two runs: one isolated frame and an eleven-frame
+  run spanning 780 ms. That is inconsistent with the reported continuous full-rim
+  movement and is much longer than the approximately 19 ms axis-group sampling skew.
+- No native I2C errors. All 1,133 readiness reads returned 0x10 on their first
+  attempt. Readiness 0–8 ms, writes/responses 0–1 ms, whole axis reads 1–9 ms.
+
+This reproduces the symptom in successful, fast receiver transactions with motors
+stopped. It rules out a half-second polling pause in this capture, but does not yet
+separate receiver response/protocol timing from controller/radio/internal firmware.
+Next comparison: profile 1 (one A press), omitting RX while keeping the zero response
+delay and explicit 20 ms loop pause; then compare profile 1 to a response-delay mode.
