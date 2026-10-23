@@ -77,12 +77,14 @@ keeps a capture open for five minutes (CLI accepts 1–600 seconds).
 ### Guided latency measurement
 
 Select `car.startLatencyTest()` in `main.ts` (or the matching startup block).
-Build and flash through the usual CLI. With both sticks centered, it shows L and
-waits 30 seconds for logging setup, then displays eight alternating up/down cues
-3–4.5 seconds apart. Respond with the LEFT stick as soon as possible and hold that
+Build and flash through the usual CLI. After centered-stick startup, it shows L
+then an up arrow and waits indefinitely. The first LEFT-stick forward movement
+starts a warm-up trial (readiness time is excluded). Seven further alternating
+down/up cues follow 3–4.5 seconds apart. Respond with the LEFT stick as soon as possible and hold that
 direction until the next arrow. M1 follows the actual stick, at the same 20 percent
-cap; M2 stays stopped. Both motors receive stops after the eighth trial. Restart
-to repeat. Return the startup call/block to `car.startControllerBench()` afterward.
+cap; M2 stays stopped. Both motors receive stops after the eighth trial. Start a
+fresh capture and restart to repeat. Return the startup call/block to
+`car.startControllerBench()` afterward; normal driving still needs no button.
 
 Capture with `run serial 120 latency-cues`, then run
 `run latency-report .cache/observations/FILE.jsonl`. Firmware records cue time,

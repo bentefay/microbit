@@ -1,5 +1,5 @@
 /** Analysis of firmware timestamps; host serial receipt times are deliberately unused. */
-type Cue = { trial: number; time: number; direction: number; previousRaw: number };
+type Cue = { trial: number; time: number; direction: number; previousRaw: number; warmup?: boolean };
 type Sample = { trial: number; input: number; raw: number; drive: number; command: number; encoder: number; angle: number };
 export function latencyReport(jsonl: string) {
   const cues: Cue[] = [], samples: Sample[] = [];
@@ -9,7 +9,7 @@ export function latencyReport(jsonl: string) {
     const [kind, ...fields] = line.split(',');
     const v = fields.map(Number);
     if (v.some(n => !Number.isFinite(n))) continue;
-    if (kind === 'LAT_CUE' && v.length === 4) cues.push({ trial: v[0], time: v[1], direction: v[2], previousRaw: v[3] });
+    if ((kind === 'LAT_CUE' || kind === 'LAT_WARMUP') && v.length === 4) cues.push({ trial: v[0], time: v[1], direction: v[2], previousRaw: v[3], warmup: kind === 'LAT_WARMUP' });
     if (kind === 'LAT_SAMPLE' && v.length === 7) samples.push({ trial: v[0], input: v[1], raw: v[2], drive: v[3], command: v[4], encoder: v[5], angle: v[6] });
   }
   if (!cues.length) throw new Error('No LAT_CUE records found; capture the guided latency firmware.');
@@ -17,14 +17,14 @@ export function latencyReport(jsonl: string) {
     throw new Error('Capture contains multiple runs or non-monotonic cue times; use a separate capture per run.');
   }
   return cues.map(cue => {
-    const row = { trial: cue.trial, cue: cue.direction > 0 ? 'L ↑' : 'L ↓', cueToInputMs: null as number | null,
+    const row = { trial: cue.trial, cue: cue.warmup ? 'L ↑ warm-up' : cue.direction > 0 ? 'L ↑' : 'L ↓', cueToInputMs: null as number | null,
       inputToCommandMs: null as number | null, encoderResponseMs: 'unresolved', note: '' };
     if ((128 - cue.previousRaw) * cue.direction > 8) {
       row.note = 'Stick already pointed in requested direction at cue'; return row;
     }
     const received = samples.find(s => s.trial === cue.trial && s.input >= cue.time && s.drive * cue.direction > 0);
     if (!received) { row.note = 'No matching nonzero drive input captured'; return row; }
-    row.cueToInputMs = received.input - cue.time;
+    if (!cue.warmup) row.cueToInputMs = received.input - cue.time;
     row.inputToCommandMs = received.command - received.input;
     const before = samples.filter(s => s.encoder < received.command && s.encoder >= received.command - 500);
     const deltas = before.slice(1).map((s, i) => ({ time: s.encoder, delta: s.angle - before[i].angle }));

@@ -38,7 +38,7 @@ namespace car {
         nezhaV2.stop(nezhaV2.MotorPostion.M1)
         nezhaV2.stop(nezhaV2.MotorPostion.M2)
         basic.showIcon(IconNames.SmallSquare)
-        serial.writeLine("BENCH: loose motors only. M1 drive, M2 steering, receiver IIC. Center sticks to start; no buttons. Power switch stops. Radio freshness UNKNOWN.")
+        serial.writeLine(latencyTest ? "LATENCY: loose M1 only; center sticks, then first LEFT-stick forward starts cues; physical power switch stops" : "BENCH: loose motors only. M1 drive, M2 steering, receiver IIC. Center sticks to start; no buttons. Power switch stops. Radio freshness UNKNOWN.")
 
         basic.forever(function () {
             let cycleStarted = input.runningTime()
@@ -52,7 +52,7 @@ namespace car {
                 basic.pause(100)
                 return
             }
-            if (latencyTest && state == 2 && input.runningTime() >= nextCue) {
+            if (latencyTest && state == 2 && trial > 0 && input.runningTime() >= nextCue) {
                 if (trial >= 8) {
                     nezhaV2.stop(nezhaV2.MotorPostion.M1)
                     nezhaV2.stop(nezhaV2.MotorPostion.M2)
@@ -98,13 +98,16 @@ namespace car {
                     lastDrive = 999
                     lastSteering = 999
                     lastTimingReport = 0
+                    maxCycleInterval = 0
+                    maxReadDuration = 0
+                    maxCommandDuration = 0
                     basic.showIcon(IconNames.Yes)
                     serial.writeValue("steering_center_deg", center)
                     serial.writeLine("BENCH: ACTIVE; left Y drive, right X steering; power switch stops")
                     if (latencyTest) {
                         basic.showString("L", 500)
-                        nextCue = input.runningTime() + 30000
-                        serial.writeLine("LAT_WAIT: 30 seconds; then follow arrows with LEFT stick; hold until next arrow. 8 cues, automatic stop.")
+                        basic.showArrow(ArrowNames.North, 0)
+                        serial.writeLine("LAT_READY: first LEFT-stick forward starts warm-up; then follow arrows and hold until next cue. Automatic stop at end.")
                     }
                     previousCycle = 0
                 } else if (input.runningTime() - lastTimingReport >= 1000) {
@@ -116,8 +119,14 @@ namespace car {
                 basic.pause(100)
                 return
             }
-            // Guided test stays stopped before the first cue, then uses the real stick.
-            if (latencyTest && trial == 0) drive = 0
+            // First correct stick movement starts the test; readiness wait is not timed.
+            if (latencyTest && trial == 0) {
+                if (drive > 0) {
+                    trial = 1
+                    serial.writeLine("LAT_WARMUP,1," + leftSeen + ",1,128")
+                    nextCue = input.runningTime() + Math.randomRange(3000, 4500)
+                } else drive = 0
+            }
             let inputSeen = input.runningTime()
             let changed = drive != lastDrive || steering != lastSteering
             let commandStarted = input.runningTime()

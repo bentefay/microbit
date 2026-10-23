@@ -56,12 +56,12 @@ test('controller bench automatically starts after three neutral samples with no 
 
 test('guided cues do not drive motors by themselves, leave steering stopped, and stop after eight trials', () => {
   const b = bench(true);
-  b.start(); b.axes(0, 255); b.tick();
+  b.start(); b.axes(255, 128); b.advance(30000); b.tick();
   expect(b.calls.some(c => c[0] === 'drive' || c[0] === 'steer')).toBe(false);
-  b.advance(30000); b.tick();
+  b.axes(0, 128); b.tick();
   expect(b.arrows).toEqual([0]);
   expect(b.calls).toContainEqual(['drive', 1, 20]);
-  expect(b.lines.some(l => l.startsWith('LAT_CUE,1,'))).toBe(true);
+  expect(b.lines.some(l => l.startsWith('LAT_WARMUP,1,'))).toBe(true);
   for (let i = 0; i < 7; i++) { b.advance(3000); b.tick(); }
   expect(b.arrows).toEqual([0, 4, 0, 4, 0, 4, 0, 4]);
   expect(b.calls.some(c => c[0] === 'steer')).toBe(false);

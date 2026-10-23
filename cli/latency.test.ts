@@ -28,3 +28,12 @@ test('encoder jumps are reported as untrusted, not fast motor response', () => {
   expect(report[0].encoderResponseMs).toBe('unresolved');
   expect(report[0].note).toContain('discontinuity');
 });
+
+test('joystick-started warm-up excludes the unbounded readiness wait from reaction timing', () => {
+  const report = latencyReport(capture(['LAT_SAMPLE,0,900,128,0,905,910,0',
+    'LAT_WARMUP,1,1000,1,128', 'LAT_SAMPLE,1,1000,0,20,1005,1010,0',
+    'LAT_SAMPLE,1,1050,0,20,1055,1060,10', 'LAT_SAMPLE,1,1100,0,20,1105,1110,20']));
+  expect(report[0].cueToInputMs).toBeNull();
+  expect(report[0].inputToCommandMs).toBe(5);
+  expect(report[0].encoderResponseMs).toBe('5–55');
+});
