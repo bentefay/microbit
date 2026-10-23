@@ -197,7 +197,7 @@ separate receiver response/protocol timing from controller/radio/internal firmwa
 Next comparison: profile 1 (one A press), omitting RX while keeping the zero response
 delay and explicit 20 ms loop pause; then compare profile 1 to a response-delay mode.
 
-## Two-axis comparison
+## Two-axis capture with controller off (excluded from movement comparison)
 
 Capture `2026-10-23T23-07-10-570Z-receiver-circle-two-axes-39849d77.jsonl`:
 Ben confirmed starting the instructed A-press/rotation step. Profile 1 was observed
@@ -207,8 +207,32 @@ intervals were 64–68 ms (median 65 ms). All 918 complete reads succeeded, with
 first-attempt readiness=16, readiness reads 0–8 ms and writes/responses 0–1 ms.
 The initial unframed serial suffix and terminal partial line are not counted.
 
-This is a complete absence of reported movement, not merely slower updates. It
-cannot yet be attributed to removing RX: controller sleep/power/radio state has
-not been independently observed. Next step is a short return to profile 0 via B,
-with the same physical movement and no intervening controller power/button change,
-to test whether the behavior reverses with the mode change.
+Ben subsequently clarified that the controller was switched off for this capture.
+Exclude it from the moving-controller baseline/profile comparison: it is not
+evidence that removing RX prevents movement updates. It does show successful
+readiness and neutral axis responses with the controller off in this observation;
+this does not establish general radio-loss behavior or a failsafe.
+
+Next step is to repeat profile 1 with the controller on. A separate three-second
+mode check (`2026-10-23T23-08-08-980Z-receiver-mode-check-8dfe41fb.jsonl`) confirmed
+profile 1 remained selected and changing inputs were arriving before that repeat.
+
+## Two-axis repeat with controller on
+
+Capture `2026-10-23T23-08-13-639Z-receiver-circle-two-axes-on-131752cf.jsonl`:
+30 seconds in profile 1, with changing inputs confirmed before capture and the
+instruction to continue full-deflection circles until the stop message.
+
+- 459 frames and 918 successful reads; frame intervals 64–68 ms, median 64 ms.
+- Longest unchanged XY observation 849 ms; longest interval between observed
+  changes 916 ms. The smaller maximum than baseline is not enough to establish
+  improvement, given uncontrolled movement and sampling differences.
+- Five exact-center runs: four isolated frames and one 13-frame run spanning
+  772 ms. The sustained center dropout remains despite removing RX.
+- All readiness reads returned 16 on the first attempt; no native I2C errors.
+  Readiness took 0–8 ms, writes/responses 0–1 ms, whole reads 1–9 ms.
+
+Removing the third axis speeds the loop but does not resolve the symptom. Next
+comparison is profile 3 (two A presses from profile 1): same two axes/order and
+explicit loop pause, adding a 10 ms command-to-response pause. A larger timing
+change is tested first; profile 2's 2 ms pause can refine it if improvement is seen.
