@@ -116,6 +116,18 @@ last drive percent, steering target, maximum cycle interval and maximum individu
 read-group time in milliseconds. These measure software timing, not radio sample
 age or physical input-to-motion latency. `serialDiagnostics=false` disables routine
 telemetry. `run serial 300 controller-timing` captures five minutes (1–600 supported).
+Use `run joystick-report PATH.jsonl` to summarize selected-stick ranges, exact
+center samples, normalized radius and recorded timing maxima from these snapshots.
+
+In the 30-second `left-stick-circle` capture, Ben was instructed to circle the left
+stick at full deflection until told to stop. All 29 snapshots selected the left
+stick. Both axes reached 0 and 255. At 24.509 and 29.690 seconds both axes reported
+exactly 128 (center); at 20.378 seconds X=128/Y=208 gave normalized radius 0.630.
+These readings are inconsistent with a continuously full-deflection circular
+output, but do not isolate the gamepad, radio link, receiver, or I2C protocol.
+Reported loop maxima were 68–72 ms and read maxima 14–16 ms. Sparse ~1 Hz snapshots
+cannot determine the duration or frequency of brief dropouts or measure physical
+input latency. The firmware was not changed for this capture.
 
 ### Guided latency measurement
 

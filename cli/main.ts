@@ -7,6 +7,7 @@ import { inspectSource, lockNativeSources, resolveCommit } from './sources';
 import { captureSerial } from './serial';
 import { latencyReport } from './latency';
 import { displayPreview } from './display-preview';
+import { joystickReport } from './joystick-report';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -209,6 +210,7 @@ const help = `micro:bit workspace — run COMMAND
   serial [SECONDS] [LABEL]     Capture serial in Docker; save timestamped local logs
   latency-report FILE          Analyze guided cue/input/command/encoder timestamps
   display-preview              Generate an offline interactive joystick LED preview
+  joystick-report FILE         Summarize normal-mode stick ranges and center samples
   flash PROJECT --confirm      Explicitly transfer existing HEX; never builds
   test                         Run TypeScript CLI tests
   env lock                     Resolve devenv lock through the normal devenv flow
@@ -278,6 +280,12 @@ export async function main(args: string[]) {
         break;
       }
       case 'display-preview': await displayPreview(root); break;
+      case 'joystick-report': {
+        if (!arg) throw new Error('Use run joystick-report PATH-TO-CAPTURE.jsonl');
+        console.log(JSON.stringify(joystickReport(await readFile(resolve(arg), 'utf8')), null, 2));
+        console.log('Sparse snapshots (~1 Hz); radius assumes independently normalized axes. Cannot establish dropout duration, radio freshness, or physical input latency.');
+        break;
+      }
       case 'flash': await flash(projectName(arg), rest.includes('--confirm')); break;
       case 'new': {
         const name = projectName(arg);
