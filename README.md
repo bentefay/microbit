@@ -38,7 +38,13 @@ movement/aim split in FPS controls. Returning the steering stick to center shoul
 request the measured straight-ahead position. It must not merely stop a steering
 motor wherever it happens to be.
 
-`car` starts **`car.startDriving()`**, the consolidated driving program in `drive.ts`.
+**Currently selected/flashed: the motor-stopped receiver investigation**, described
+in [docs/receiver-investigation.md](docs/receiver-investigation.md). The input-lag
+cause is unresolved; no timing workaround has been declared a fix.
+
+The normal program is **`car.startDriving()`**, in `drive.ts`.
+`run car-mode drive` selects it; `run car-mode receiver-lab` selects the investigation.
+Selection changes `main.ts` and its block only; build and flash remain separate commands.
 Settings are in `settings.ts`; diagnostic programs remain separately selectable.
 The current configuration is for the existing loose motors. Before attaching a
 steering linkage, enter measured limits and switch off `looseMotorBench`.

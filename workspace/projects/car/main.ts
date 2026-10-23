@@ -1,1 +1,1 @@
-car.startDriving()
+car.startReceiverLab()

@@ -8,6 +8,8 @@ import { captureSerial } from './serial';
 import { latencyReport } from './latency';
 import { displayPreview } from './display-preview';
 import { joystickReport } from './joystick-report';
+import { research } from './research';
+import { receiverReport } from './receiver-report';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -216,6 +218,9 @@ const help = `micro:bit workspace — run COMMAND
   env lock                     Resolve devenv lock through the normal devenv flow
   inspect PATH [TEXT]           Inspect a toolchain/workspace file inside Docker
   source samples|target|core [PATH]  Read-only upstream source inspection
+  research URL [TEXT]           Read/cache public vendor/GitHub evidence, never execute it
+  car-mode drive|receiver-lab   Select checked-in car entry point; never builds or flashes
+  receiver-report FILE         Analyze full-rate receiver timing and repeated values
 `;
 export async function main(args: string[]) {
   try {
@@ -245,6 +250,19 @@ export async function main(args: string[]) {
       case 'pxt': await container('pxt', arg, rest); break;
       case 'inspect': await container('inspect', 'car', [arg || '', ...rest]); break;
       case 'source': await inspectSource(arg, rest[0]); break;
+      case 'research':
+        if (!arg) throw new Error('Use run research HTTPS-URL [TEXT]');
+        await research(root, arg, rest[0]); break;
+      case 'car-mode': {
+        if (arg !== 'drive' && arg !== 'receiver-lab') throw new Error('Use car-mode drive|receiver-lab');
+        const call = arg === 'drive' ? 'startDriving' : 'startReceiverLab';
+        const block = arg === 'drive' ? 'car_start_driving' : 'car_start_receiver_lab';
+        const dir = join(workspace, 'projects/car');
+        await writeFile(join(dir, 'main.ts'), `car.${call}()\n`);
+        await writeFile(join(dir, 'main.blocks'), `<xml xmlns="https://developers.google.com/blockly/xml"><block type="pxt-on-start" x="0" y="0"><statement name="HANDLER"><block type="${block}"></block></statement></block></xml>\n`);
+        console.log(`Selected ${arg}; run build car, then explicitly flash when ready.`);
+        break;
+      }
       case 'native':
         if (arg !== 'lock') throw new Error('Use run native lock');
         await writeFile(join(root, 'toolchain/native-lock.json'), JSON.stringify(await lockNativeSources(), null, 2) + '\n');
@@ -284,6 +302,12 @@ export async function main(args: string[]) {
         if (!arg) throw new Error('Use run joystick-report PATH-TO-CAPTURE.jsonl');
         console.log(JSON.stringify(joystickReport(await readFile(resolve(arg), 'utf8')), null, 2));
         console.log('Sparse snapshots (~1 Hz); radius assumes independently normalized axes. Cannot establish dropout duration, radio freshness, or physical input latency.');
+        break;
+      }
+      case 'receiver-report': {
+        if (!arg) throw new Error('Use receiver-report PATH-TO-CAPTURE.jsonl');
+        console.log(JSON.stringify(receiverReport(await readFile(resolve(arg), 'utf8')), null, 2));
+        console.log('Identical samples do not prove stale radio data. Center spans and change intervals are sampled observations, not physical latency. Compare profiles using the same continuous stick movement.');
         break;
       }
       case 'flash': await flash(projectName(arg), rest.includes('--confirm')); break;

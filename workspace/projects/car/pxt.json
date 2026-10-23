@@ -17,7 +17,10 @@
         "drive.ts",
         "display.ts",
         "controls.ts",
-        "receiver.ts"
+        "receiver.ts",
+        "receiver-transport.ts",
+        "receiver-transport.cpp",
+        "receiver-lab.ts"
     ],
     "preferredEditor": "blocksprj",
     "disableHistory": true
