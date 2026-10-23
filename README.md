@@ -79,8 +79,8 @@ compilation in Docker, a successful USB flash/remount, and Ben's observation of
 the tick and button A scrolling **ELI**. An isolated Chromium test also loaded
 the repository project, converted its custom block to TypeScript and back, and
 compiled it to HEX using the local native cache. Serial opening/closing was
-tested. The earlier commissioning block passed that browser round-trip; the new
-bench block has passed PXT compilation but its browser round-trip is pending.
+tested. After the startup fix, the bench block also passed the isolated Chromium
+round-trip and browser compilation using the local native cache.
 Live controller and individual motor observations are recorded below.
 
 Before chassis operation we need measured steering center/travel/direction, a native
