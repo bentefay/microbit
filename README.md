@@ -67,7 +67,12 @@ For input-only diagnostics, change the startup call/block back to
 `car.startCommissioning()`: A displays ELI, B shows a tick, and A+B toggles logging.
 That mode makes no motor commands and latches read failures until manual retry.
 Firmware compilation, successful USB transfer and observed hardware response are
-separate checks. Integrated controller/motor hardware validation is pending.
+separate checks. The first controller-bench image panicked with 980 on startup.
+Generated ARM code showed the nested `stopOutputs` declaration being called through
+an out-of-scope stack slot in the forever callback. Changing it to a function-valued
+local makes the compiler capture it in the closure instead (verified in assembly).
+Host tests did not expose this native compiler behavior. Hardware retry and integrated
+controller/motor validation are pending.
 
 Verified on this machine: offline CLI builds of `blink` and `car`, native ARM
 compilation in Docker, a successful USB flash/remount, and Ben's observation of

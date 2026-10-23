@@ -20,7 +20,10 @@ namespace car {
         basic.showIcon(IconNames.SmallSquare)
         serial.writeLine("BENCH: loose motors only. M1 drive, M2 steering, receiver IIC. A arms from neutral; B disarms. Radio freshness UNKNOWN.")
 
-        function stopOutputs() {
+        // A function-valued local is captured correctly by this pinned PXT compiler.
+        // A nested function declaration was emitted as an out-of-scope stack read
+        // in the forever callback and caused native panic 980 on startup.
+        let stopOutputs = function () {
             if (outputsPending) {
                 nezhaV2.stop(nezhaV2.MotorPostion.M1)
                 nezhaV2.stop(nezhaV2.MotorPostion.M2)
