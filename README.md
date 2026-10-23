@@ -41,7 +41,11 @@ motor wherever it happens to be.
 button A displays ELI, and button B displays the tick again. It sends no motor
 commands. **A+B toggles input-only PS2 logging**, so check the IIC connection before
 using that diagnostic. It reports raw left-Y/right-X bytes, or -1 on readiness
-timeout, through `run serial 30`. Pure, tested mapping functions are in `controls.ts`; they are not
+timeout, through `run serial 30`. A failed read shows an X and stops polling;
+after checking the receiver, A+B explicitly retries. If left-Y fails, right-X
+is skipped and reported as -1 too. A serial heartbeat every five seconds helps
+observe firmware responsiveness; it cannot interrupt a blocked native call.
+Pure, tested mapping functions are in `controls.ts`; they are not
 connected to actuators. Firmware compilation, successful USB transfer and an
 observed hardware response are separate checks.
 
@@ -207,10 +211,33 @@ with this receiver API. Do not claim otherwise from a readiness timeout.
   The saved `right-stick` capture contains 450 right-axis and 449 left-axis
   samples, zero readiness failures, and the untouched left axis at 128.
 - These are initial endpoint/center observations, with direction inferred from
-  the instructed movement order. Dead zones, radio-loss behavior, motor direction
+  the instructed movement order. Dead zones, general radio-loss behavior, motor direction
   and mechanical steering limits still require testing. Occasional 128 readings
   appeared between endpoint readings; verify steady holds before filtering them
   or attributing them to the controller or receiver.
+- Controller power-off test: Ben held left-Y fully forward while switching the
+  controller off, then released it. The `controller-off` capture showed 0 while
+  held, then 128 from 37.3 seconds through the end of the 60-second capture.
+  Right-X stayed 128; neither axis reported a readiness failure. This supports
+  neutral-on-power-off for this trial, but the precise physical switch time was
+  not instrumented, so no stop-latency bound is established. Sleep, interference,
+  button-state release and general radio-loss behavior remain unverified.
+- Receiver-disconnection trial exposed a failure: both axes returned -1 from
+  29.9 to 40.5 seconds in `receiver-disconnect`, then **all serial output stopped**
+  around reconnection. A subsequent 60-second `reconnect` capture was empty,
+  and Ben reported no button B response. A brief reset press did not restore
+  display/button behavior. Recovery and cause are under investigation; do not
+  enable motor control on this evidence.
+- A full power cycle (Nezha off and micro:bit USB disconnected) restored the
+  tick and button A display. Diagnostic firmware now stops polling after the
+  first failed read and requires a manual retry; this avoids continued polling
+  across a known disconnection, but does not fix or bound the native I2C call.
+- Source inspection shows CODAL's `NRF52I2C::waitForStop` busy-waits, with a
+  nominal 10-second timeout and a separate roughly 1-second STOP recovery wait.
+  Its LASTTX workaround can also reset the timeout counter. These are native
+  implementation details, not a diagnosis of the observed stall, but they
+  demonstrate why the TypeScript readiness timeout is not a bound on an I2C
+  transaction or on the whole control loop.
 
 ### Remaining sequence
 
