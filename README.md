@@ -50,8 +50,8 @@ compilation in Docker, a successful USB flash/remount, and Ben's observation of
 the tick and button A scrolling **ELI**. An isolated Chromium test also loaded
 the repository project, converted its custom block to TypeScript and back, and
 compiled it to HEX using the local native cache. Serial opening/closing was
-tested; controller input values, motor commands and loss-of-control behavior
-have **not** been tested on hardware.
+tested. Live controller input commissioning is recorded below; motor commands
+and loss-of-control stopping have **not** been tested on hardware.
 
 Before movement can be enabled we need measured raw joystick center/range/sign,
 dead zones, steering center and safe travel. Initial movement will use a low
@@ -75,6 +75,12 @@ run device             # read-only USB/mount verification
 run flash car --confirm
 run serial 10
 ```
+
+`run serial 60 LABEL` reads the verified micro:bit serial device inside Docker.
+The TypeScript CLI saves every complete line with a host receipt timestamp to
+an ignored `.cache/observations/*.jsonl` file, prints changed axis values, and
+summarizes counts/ranges/readiness failures. These timestamps cannot establish
+fresh radio packets. Capture files are local and are not committed.
 
 `run deps lock` deliberately updates the npm lock through safe-chain; `run native
 lock` resolves native release commits; `run env lock` updates the Nix lock through devenv. Dependencies are never installed
@@ -186,6 +192,27 @@ scheme. **Reliable radio-loss stopping is not verified** and may be impossible
 with this receiver API. Do not claim otherwise from a readiness timeout.
 
 ## Bench checklist
+
+### Observations — 2026-10-23
+
+- Ben confirmed both motor cables disconnected, receiver in a labelled IIC
+  port, and Nezha/controller powered. Micro:bit remained seated with USB attached.
+  Live serial reads worked in that arrangement; this observation is not an
+  electrical verification of the board's simultaneous-power protection.
+- Left-Y sequence (forward, center, backward): 0, 128, 255, with intermediate
+  readings during partial movement. Forward therefore needs axis inversion
+  when positive output means forward. The initial capture is in the session
+  transcript, before file logging was added.
+- Right-X sequence (left, center, right): 0, 128, 255, with intermediate values.
+  The saved `right-stick` capture contains 450 right-axis and 449 left-axis
+  samples, zero readiness failures, and the untouched left axis at 128.
+- These are initial endpoint/center observations, with direction inferred from
+  the instructed movement order. Dead zones, radio-loss behavior, motor direction
+  and mechanical steering limits still require testing. Occasional 128 readings
+  appeared between endpoint readings; verify steady holds before filtering them
+  or attributing them to the controller or receiver.
+
+### Remaining sequence
 
 1. Power off; inspect board labels and connections. Receiver goes to IIC.
 2. Flash motionless commissioning firmware and observe its display/buttons.

@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { inspectSource, lockNativeSources, resolveCommit } from './sources';
+import { captureSerial } from './serial';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -113,7 +114,8 @@ async function mount() {
   }
   throw new Error('No mounted MICROBIT filesystem belongs to the detected USB device. Mount it in your desktop first.');
 }
-async function serial(seconds = '10') {
+async function serial(seconds = '10', label = 'capture') {
+  projectName(label);
   const duration = Number(seconds);
   if (!Number.isInteger(duration) || duration < 1 || duration > 60) throw new Error('Serial duration must be 1–60 seconds');
   const usb = await devices();
@@ -126,9 +128,9 @@ async function serial(seconds = '10') {
   }
   if (matches.length !== 1) throw new Error('Expected one CDC serial interface for this micro:bit');
   const device = matches[0];
-  await command(['docker', 'run', '--rm', '--init', '--user', identity(), '--group-add', String((await stat(device)).gid),
+  await captureSerial(['docker', 'run', '--rm', '--init', '--user', identity(), '--group-add', String((await stat(device)).gid),
     '--network', 'none', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--read-only',
-    '--device', `${device}:/dev/microbit:rw`, image, 'serial', String(duration)]);
+    '--device', `${device}:/dev/microbit:rw`, image, 'serial', String(duration)], join(root, '.cache/observations'), label);
 }
 async function flash(project: string, confirmed: boolean) {
   if (!confirmed) throw new Error('Flashing starts the program. Use run flash PROJECT --confirm after arranging a controlled bench test.');
@@ -202,7 +204,7 @@ const help = `micro:bit workspace — run COMMAND
   new NAME                     Create a motionless project
   pxt PROJECT ARGS...           Run a PXT diagnostic in the offline container
   device                       Inspect USB and verified MICROBIT mount
-  serial [SECONDS]             Read micro:bit serial in a container (default 10)
+  serial [SECONDS] [LABEL]     Capture serial in Docker; save timestamped local logs
   flash PROJECT --confirm      Explicitly transfer existing HEX; never builds
   test                         Run TypeScript CLI tests
   env lock                     Resolve devenv lock through the normal devenv flow
@@ -264,7 +266,7 @@ export async function main(args: string[]) {
         break;
       }
       case 'device': console.log(JSON.stringify(await mount(), null, 2)); break;
-      case 'serial': await serial(arg); break;
+      case 'serial': await serial(arg, rest[0]); break;
       case 'flash': await flash(projectName(arg), rest.includes('--confirm')); break;
       case 'new': {
         const name = projectName(arg);
