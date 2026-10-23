@@ -196,3 +196,19 @@ stopped. It rules out a half-second polling pause in this capture, but does not 
 separate receiver response/protocol timing from controller/radio/internal firmware.
 Next comparison: profile 1 (one A press), omitting RX while keeping the zero response
 delay and explicit 20 ms loop pause; then compare profile 1 to a response-delay mode.
+
+## Two-axis comparison
+
+Capture `2026-10-23T23-07-10-570Z-receiver-circle-two-axes-39849d77.jsonl`:
+Ben confirmed starting the instructed A-press/rotation step. Profile 1 was observed
+throughout the 30-second capture; the stop instruction followed capture completion.
+All 459 complete frames were exactly LX=128, LY=128, spanning 29,917 ms. Frame
+intervals were 64–68 ms (median 65 ms). All 918 complete reads succeeded, with
+first-attempt readiness=16, readiness reads 0–8 ms and writes/responses 0–1 ms.
+The initial unframed serial suffix and terminal partial line are not counted.
+
+This is a complete absence of reported movement, not merely slower updates. It
+cannot yet be attributed to removing RX: controller sleep/power/radio state has
+not been independently observed. Next step is a short return to profile 0 via B,
+with the same physical movement and no intervening controller power/button change,
+to test whether the behavior reverses with the mode change.
