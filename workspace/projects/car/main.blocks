@@ -1,1 +1,1 @@
-<xml xmlns="https://developers.google.com/blockly/xml"><variables></variables><block type="pxt-on-start" x="0" y="0"><statement name="HANDLER"><block type="car_start_commissioning"></block></statement></block></xml>
+<xml xmlns="https://developers.google.com/blockly/xml"><variables></variables><block type="pxt-on-start" x="0" y="0"><statement name="HANDLER"><block type="car_start_controller_bench"></block></statement></block></xml>

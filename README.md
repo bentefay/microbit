@@ -15,17 +15,18 @@ remote; Ben will publish it.
 | Remote | PlanetX **PS2 Joystick Kit**, physical wireless gamepad and receiver/adapter |
 | Accessories | RJ11 4P4C cables, micro:bit case, micro-USB cable |
 
-The Nezha's onboard buttons have run both motors in both directions. That is the
-only user-confirmed motor test. They work independently of a micro:bit program.
+The Nezha's onboard buttons have run both motors in both directions. They work
+independently of a micro:bit program. Both loose motors have also passed finite
+20-degree movement and stopping tests from micro:bit firmware, in both directions.
 The micro:bit enumerates over USB, confirming that the connected cable carries
 data. Use its **micro-USB** socket for programming; Nezha's USB-C is for charging.
 
-The receiver was initially connected to a motor port. Its correction to **IIC**
-has not been confirmed. Switch the expansion board off and check the actual
-labels before connecting it. Do not connect this receiver to M1–M4.
+The receiver was initially connected to a motor port; Ben subsequently confirmed
+it is connected to **IIC**, and inputs have been logged. Do not connect it to M1–M4.
 
-Proposed wiring is M1 = wheel drive and M2 = steering; neither port assignment is
-confirmed. This is **one drive motor plus one steering motor**, not tank steering.
+The current loose-motor bench wiring is M1 = intended wheel drive, M2 = intended
+steering, and receiver = IIC. This is **one drive motor plus one steering motor**,
+not tank steering.
 Chassis, wheels, gearing, linkage, center, travel, direction and weight are unknown.
 Never find steering limits by driving into a mechanical stop.
 
@@ -37,30 +38,49 @@ movement/aim split in FPS controls. Returning the steering stick to center shoul
 request the measured straight-ahead position. It must not merely stop a steering
 motor wherever it happens to be.
 
-`car` currently starts a **motionless commissioning program**: a tick on the LEDs,
-button A displays ELI, and button B displays the tick again. It sends no motor
-commands. **A+B toggles input-only PS2 logging**, so check the IIC connection before
-using that diagnostic. It reports raw left-Y/right-X bytes, or -1 on readiness
-timeout, through `run serial 30`. A failed read shows an X and stops polling;
-after checking the receiver, A+B explicitly retries. If left-Y fails, right-X
-is skipped and reported as -1 too. A serial heartbeat every five seconds helps
-observe firmware responsiveness; it cannot interrupt a blocked native call.
-Pure, tested mapping functions are in `controls.ts`; they are not
-connected to actuators. Firmware compilation, successful USB transfer and an
-observed hardware response are separate checks.
+`car` now starts the **supervised loose-motor controller bench** in `bench.ts`.
+Do not use this mode with wheels or a steering linkage attached.
+
+- Startup: small square, disarmed, no motor commands or receiver reads.
+- Center both sticks and tap micro:bit **A**. Three neutral samples are required;
+  the current M2 encoder position becomes the bench center. Tick means armed.
+- Left Y controls signed M1 drive, capped at 20 percent. Each request is a finite
+  20-degree move, interrupted by an additional stop after a 100 ms yield. Motion
+  may pulse; physical speed linearity has not yet been measured.
+- Right X selects M2 position within ±45 degrees of the captured center, returning
+  toward center when released. This is a loose-shaft sweep, not a measured linkage
+  limit. The vendor's shortest-path absolute positioning wraps modulo 360.
+- **B** disarms; the loop sends stops when it can next run. This is not a guaranteed
+  emergency stop during a native I2C stall. Keep physical power-off accessible.
+- A read failure shows X and stops polling. **A** explicitly retries from neutral.
+  Receiver readiness still does not prove fresh radio data. Repeated stale values
+  could keep issuing finite commands, so this is not a radio-loss failsafe.
+
+The loop stops previous outputs before reading the receiver again. Finite movement
+requests limit requested travel if the loop stalls; they do not establish a stopping
+time or guarantee against motor-controller faults. The vendor speed setting is shared,
+so steering uses the drive speed magnitude when driving, or 15 percent when drive is
+neutral. Small throttle can therefore slow steering. Settings, axis inversions and the
+provisional eight-count dead zone are at the top of `bench.ts`.
+
+For input-only diagnostics, change the startup call/block back to
+`car.startCommissioning()`: A displays ELI, B shows a tick, and A+B toggles logging.
+That mode makes no motor commands and latches read failures until manual retry.
+Firmware compilation, successful USB transfer and observed hardware response are
+separate checks. Integrated controller/motor hardware validation is pending.
 
 Verified on this machine: offline CLI builds of `blink` and `car`, native ARM
 compilation in Docker, a successful USB flash/remount, and Ben's observation of
 the tick and button A scrolling **ELI**. An isolated Chromium test also loaded
 the repository project, converted its custom block to TypeScript and back, and
 compiled it to HEX using the local native cache. Serial opening/closing was
-tested. Live controller input commissioning is recorded below; motor commands
-and loss-of-control stopping have **not** been tested on hardware.
+tested. The earlier commissioning block passed that browser round-trip; the new
+bench block has passed PXT compilation but its browser round-trip is pending.
+Live controller and individual motor observations are recorded below.
 
-Before movement can be enabled we need measured raw joystick center/range/sign,
-dead zones, steering center and safe travel. Initial movement will use a low
-configurable drive cap, explicit arming, neutral startup and accessible physical
-power-off. Speed percentages are **not** an independently adjustable torque limit.
+Before chassis operation we need measured steering center/travel/direction, a native
+I2C timing fix, and further loss-of-control tests. Loose-motor tests do not replace
+those checks. Speed percentages are **not** an independently adjustable torque limit.
 
 ## Normal workflow
 
@@ -108,7 +128,8 @@ MakeCode's Time Machine is disabled (`disableHistory`) because its history
 writes conflict with this filesystem backend; use Git for history.
 `main.ts` is kept small and block-friendly, while helper code lives in other files.
 Arbitrary TypeScript is not guaranteed to round-trip to blocks. The checked-in
-custom commissioning block is the round-trip case covered by `run editor-test`.
+custom startup block is the round-trip case covered by `run editor-test`. Rebuild
+the browser image (`run image browser`) after changing its checked-in test script.
 
 ## Isolation and dependencies
 
@@ -226,8 +247,8 @@ with this receiver API. Do not claim otherwise from a readiness timeout.
   29.9 to 40.5 seconds in `receiver-disconnect`, then **all serial output stopped**
   around reconnection. A subsequent 60-second `reconnect` capture was empty,
   and Ben reported no button B response. A brief reset press did not restore
-  display/button behavior. Recovery and cause are under investigation; do not
-  enable motor control on this evidence.
+  display/button behavior. This does not establish reliable receiver recovery or
+  justify chassis operation; the later loose-motor test uses finite motion requests.
 - A full power cycle (Nezha off and micro:bit USB disconnected) restored the
   tick and button A display. Diagnostic firmware now stops polling after the
   first failed read and requires a manual retry; this avoids continued polling
@@ -245,12 +266,15 @@ with this receiver API. Do not claim otherwise from a readiness timeout.
 ### Isolated loose-motor test
 
 `motor-test` is separate from the car firmware and has no receiver reads.
-Use it only with one loose motor, no wheels/linkage, and the PS2 receiver
-disconnected. `testPort` in `main.ts` selects the port (currently M2).
+Use it only with loose motors and no wheels/linkage. The other motor and PS2
+receiver may remain connected; the test does not read the receiver and commands
+only `testPort` in `main.ts` (currently M2).
 It makes no motor commands on startup. Button A requests 20 degrees clockwise
 at 15 percent; B requests 20 degrees counterclockwise. A+B requests a stop.
 The finite angle is sent to Nezha in its movement command; no homing or absolute
-angle is used. An additional stop is sent one second later. Keep the physical
+angle is used. An additional stop is sent one second later. Presses during that
+one-second interval are ignored, even if the motor has visibly stopped already;
+leave two seconds between taps. Keep the physical
 Nezha power switch accessible: these commands do not establish a reliable
 software emergency stop or independently adjustable torque limit.
 
@@ -258,13 +282,20 @@ The first loose motor on M1 passed small movements in both directions and
 stopping, confirmed by Ben. The `motor-one` capture records the commands and
 additional stop requests. Ben made several presses/holds, accounting for
 repeated requests. The movement triggers on button **release** (MakeCode uses
-a click event), and hold duration does not change the finite angle. The second
-motor/M2 test is pending.
+a click event), and hold duration does not change the finite angle.
+
+The second loose motor on M2 also passed both directions and stopping, with
+M1 and the receiver connected (`motor-two-connected` capture). Ben confirmed
+M1 stayed still. An apparent need to press twice when reversing was resolved
+by spacing taps: Ben confirmed it was the test's one-second busy interval.
+These observations establish visible movement and stopping, not angle accuracy,
+loaded steering performance, or a controller-loss failsafe.
 
 Build with `run build motor-test`, flash with `run flash motor-test --confirm`,
 and capture with `run serial 60 motor-test`. Motor movement needs explicit bench
 readiness and a button press. Command transmission is not proof of movement or
-stopping; record the physical observation. Restore `car` firmware after testing.
+stopping; record the physical observation. The current `car` startup is the
+disarmed controller bench described above, not the earlier input-only program.
 - Source inspection shows CODAL's `NRF52I2C::waitForStop` busy-waits, with a
   nominal 10-second timeout and a separate roughly 1-second STOP recovery wait.
   Its LASTTX workaround can also reset the timeout counter. These are native

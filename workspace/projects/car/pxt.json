@@ -1,6 +1,6 @@
 {
     "name": "car",
-    "description": "Eli's Nezha Pro car — commissioning firmware; motors disabled",
+    "description": "Eli's Nezha Pro car — supervised loose-motor controller bench",
     "dependencies": {
         "core": "*",
         "radio": "*",
@@ -12,6 +12,7 @@
         "main.ts",
         "main.blocks",
         "car.ts",
+        "bench.ts",
         "controls.ts",
         "receiver.ts"
     ],

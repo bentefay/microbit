@@ -26,12 +26,12 @@ try {
     const result = await E.compiler.decompileAsync('main.ts');
     return { success: result.success, xml: result.outfiles['main.blocks'], diagnostics: result.diagnostics };
   });
-  if (!decompiled.success || !decompiled.xml?.includes('car_start_commissioning') || decompiled.xml.includes('typescript_statement')) throw new Error('Custom block decompilation failed: ' + JSON.stringify(decompiled));
+  if (!decompiled.success || !decompiled.xml?.includes('car_start_controller_bench') || decompiled.xml.includes('typescript_statement')) throw new Error('Custom block decompilation failed: ' + JSON.stringify(decompiled));
   await page.waitForFunction(() => !E.getEditor().updatingEditorFile);
   await page.evaluate(() => E.getEditor().openJavaScript());
   await page.waitForFunction(() => E.getEditor().editorFile?.name === 'main.ts');
   const text = await page.evaluate(() => E.pkg.mainPkg.readFile('main.ts'));
-  if (text.trim() !== 'car.startCommissioning()') throw new Error('Unexpected blocks-to-TypeScript result: ' + text);
+  if (text.trim() !== 'car.startControllerBench()') throw new Error('Unexpected blocks-to-TypeScript result: ' + text);
   await page.waitForFunction(() => !E.getEditor().updatingEditorFile);
   await page.evaluate(() => E.getEditor().openBlocksAsync());
   await page.waitForFunction(() => E.getEditor().editorFile?.name === 'main.blocks');
