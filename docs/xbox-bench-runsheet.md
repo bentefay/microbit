@@ -24,7 +24,16 @@ Then enable blue override, oppose Eli up with blue down, centre blue, disable
 override and move Eli's stick. Confirm continuous rotation, steering returning
 to its starting position, and override. Use telemetry to check input freshness,
 speed/target ranges, command-write suppression and I2C results automatically.
-Corrected continuous-control result pending; do not repeat the finite sequence.
+Corrected continuous control and either-stick mapping passed: Ben said "That's
+perfect." The liveness probes receive actual replies without replacing controls;
+held demands stay continuous and unchanged demands produce no extra motor writes.
+Do not repeat the finite sequence or the full stick exercise.
+
+New B toggle: each Xbox B switches only that controller between either-stick and
+split controls (left Y drive/right X steering), defaulting to either-stick on each
+connection. Both modes retain blue A override. After flashing, one front micro:bit
+press starts normally; the only new physical check is Xbox B into split mode and
+B back into either-stick mode. That mode-toggle check is pending.
 
 Ben authorized the motor test and confirmed both motors remain loose, secured,
 clear of hands/objects, with the Nezha power switch accessible. No steering linkage

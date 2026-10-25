@@ -1,4 +1,4 @@
-type Pad = { address: string; reports: number; updatesWhileBothConnected: number; activeStick?: number;
+type Pad = { address: string; reports: number; updatesWhileBothConnected: number; activeStick?: number; controlMode?: 'either' | 'split';
   snapshots: number; lastInput: number[] | null };
 export class DualPads {
   mask = 0;
@@ -44,6 +44,12 @@ export class DualPads {
     }
     const slot = p[2];
     if (!['0', '1'].includes(slot)) return;
+    if (p[0] === 'BP_MODE' && p.length === 4 && /^\d+$/.test(p[1]) && ['0', '1'].includes(p[3]) && this.pads[slot]) {
+      const mode = p[3] === '1' ? 'split' : 'either';
+      const changed = this.pads[slot].controlMode !== mode;
+      this.pads[slot].controlMode = mode;
+      if (changed) return `CONTROLLER ${Number(slot) + 1}: ${mode === 'split' ? 'split controls — left stick speed, right stick steering' : 'either stick controls speed and steering'}.`;
+    }
     if (p[0] === 'BP_STICK' && p.length === 4 && /^\d+$/.test(p[1]) && ['0', '1'].includes(p[3]) && this.pads[slot])
       this.pads[slot].activeStick = Number(p[3]);
     if ((p[0] === 'BP_READY' && p.length === 4 || p[0] === 'BP_SLOT' && p.length === 6) &&

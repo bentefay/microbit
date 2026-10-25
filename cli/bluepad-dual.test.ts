@@ -8,6 +8,11 @@ test('two identities and simultaneous display writes stay separate across slot r
   expect(m.pads[1].activeStick).toBe(1);
   m.push('BP_STICK,2002,1,2');
   expect(m.pads[1].activeStick).toBe(1);
+  expect(m.push('BP_MODE,2003,1,1')).toContain('split controls');
+  expect(m.pads[1].controlMode).toBe('split');
+  expect(m.pads[0].controlMode).toBeUndefined();
+  expect(m.push('BP_MODE,2004,1,1')).toBeUndefined();
+  expect(m.push('BP_MODE,2005,1,0')).toContain('either stick');
   m.push('BP_PEERS,2100,3,0');
   m.push('BP_PAD,2200,0,7,500,0,0,0,0,0,0,0,0');
   m.push('BP_PAD,2201,1,3,-500,0,0,0,0,0,0,0,0');

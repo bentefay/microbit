@@ -21,6 +21,7 @@ static uint32_t probe_responses[2];
 #endif
 
 BUILD_ASSERT(BUTTON_A == 1u, "Override toggle must match Bluepad32's A button");
+BUILD_ASSERT(BUTTON_B == 2u, "Control-mode toggle must match Bluepad32's B button");
 
 static const struct gpio_dt_spec buttons[] = {
     GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios),
@@ -151,6 +152,9 @@ static void tick(btstack_timer_source_t *source) {
             printk("BP_SLOT,%u,%d,%s,%u,%u\n", now, i, bd_addr_to_str(d->conn.btaddr), pad_reports[i], both_updates[i]);
             printk("BP_STICK,%u,%d,%u\n", now, i, display_state.pad[i].stick);
 #ifdef ENABLE_MOTOR_DRIVE
+            printk("BP_MODE,%u,%d,%u\n", now, i, display_state.pad[i].split);
+#endif
+#ifdef ENABLE_MOTOR_DRIVE
             printk("BP_POLL,%u,%d,%u,%u,%u\n", now, i, polls[i], probe_responses[i], poll_status[i]);
 #endif
         }
@@ -232,6 +236,7 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     // Display every received report BEFORE the serial snapshot rate limit.
     bool was_override = display_state.override_latched;
     unsigned old_stick = display_state.pad[slot].stick;
+    bool was_split = display_state.pad[slot].split;
 #ifdef ENABLE_MOTOR_DRIVE
     received[slot] = k_uptime_get_32();
     if (display_input_axes(&display_state, slot, g->axis_x, g->axis_y,
@@ -244,6 +249,8 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     uint32_t now = btstack_run_loop_get_time_ms();
     if (old_stick != display_state.pad[slot].stick)
         printk("BP_STICK,%u,%d,%u\n", now, slot, display_state.pad[slot].stick);
+    if (was_split != display_state.pad[slot].split)
+        printk("BP_MODE,%u,%d,%u\n", now, slot, display_state.pad[slot].split);
     if (pad_reports[slot] > 1 && (uint32_t)(now - last_printed[slot]) < 200) return;
     last_printed[slot] = now;
     printk("BP_PAD,%u,%d,%u,%d,%d,%d,%d,%d,%d,%u,%u,%u\n", now, slot, pad_reports[slot],

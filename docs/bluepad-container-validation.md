@@ -32,7 +32,14 @@ An actual characteristic-value response refreshes liveness without changing the
 held demand. Requests, local readiness and the other controller never refresh it.
 `BP_POLL` records requests, responses and last API/ATT status; `BP_DRIVE` exposes
 requested outputs, liveness age, write count and maximum observed I2C write duration.
-Physical recheck of the corrected held-input behavior is pending.
+Ben confirmed the corrected held-input behavior and either-stick controls: "That's
+perfect." The capture shows both stick selections on blue, continuous nonzero
+drive across probe replies, and no stale/fault transitions. At a held-demand
+checkpoint, speed 20 and target 20° persisted from 77088 through 77909 ms with
+write count fixed at 355 while probe responses increased. Later neutral output
+remained at speed 0/target 2° with writes fixed at 901. Maximum observed I2C write
+duration was 25 ms (including scheduling), not a radio-latency measurement.
+Saved live checkpoint: `.cache/observations/bluepad-held-input-result.json`.
 These paths were inspected through the checked-in `run bluepad inspect` command;
 the header is `ble/gatt-service/hids_host.h` (not `hids_client.h`).
 
@@ -55,6 +62,24 @@ suites and a new native build: 249216 B flash / 53376 B static RAM. Corrected HE
 Flashed at 08:06:15 UTC, same-device remount with no `FAIL.TXT`; waiting heartbeat
 and zero motor writes observed. Corrected capture:
 `.cache/observations/2026-10-25T08-06-18-557Z-bluepad-session-f26c611b.jsonl`.
+
+### Per-controller B mode toggle
+
+Xbox B now toggles that controller's mapping: either-stick by default, or split
+left-Y drive/right-X steering. Held B toggles once; B held on connection is ignored.
+The unused split axes cannot steal shared ownership. The LED shows the combined
+drive/steering axes. Changing Eli's mapping cannot affect blue's mapping or blue A
+override. Each connection defaults to either-stick. `BP_MODE` records transitions
+and heartbeat state; the CLI announces and tracks each pad's mode independently.
+57 CLI tests / 721 assertions and seven C suites pass, including both connection
+orders, independent mappings, held B, split-axis combination, unused-axis rejection,
+A/B independence under override, and reconnect defaults. Physical B-toggle check
+pending; previous continuous-control checks do not need repeating.
+The mode-toggle build uses 249468 B flash / 53384 B static RAM. HEX SHA-256:
+`a06a0c74ac6c77cb5875d76510746355bcee12b6e0ad9819618dc016755230d1`.
+Flashed at 08:11:11 UTC, same-device remount with no `FAIL.TXT`; live waiting
+state and zero motor writes confirmed. Capture:
+`.cache/observations/2026-10-25T08-11-23-229Z-bluepad-session-01acb672.jsonl`.
 
 ## Native finite loose-motor bench
 

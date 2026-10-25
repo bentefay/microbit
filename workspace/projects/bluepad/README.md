@@ -68,6 +68,14 @@ Either stick's meaningful movement selects the shared owner and controlling stic
 The LED dot follows that stick. A same-report tie retains the previously selected
 stick; a stationary deflected stick cannot steal control when the other centres.
 `BP_STICK,time,slot,stick` identifies the current choice (0 left, 1 right).
+Xbox **B toggles that controller's mapping** between this either-stick mode and
+split mode (left Y = drive, right X = steering; left X/right Y are unused). The
+LED dot shows the combined drive/steering axes in split mode. B does not change
+the other controller's mapping or blue A override. Holding B toggles once; B held
+at connection is ignored until released and pressed. Mode changes apply on that
+report, so centre before switching if you want the outputs to stay still.
+Each connection starts in either-stick mode. `BP_MODE,time,slot,split` (0/1)
+records toggles and heartbeat state; the monitor announces each mode change.
 Blue Xbox A toggles exclusive control of both motors and the LED dot. Identity,
 held-A handling and override persistence match the LED diagnostic. Lost blue in
 override stops both motors and does not hand control to Eli. Owner disconnection

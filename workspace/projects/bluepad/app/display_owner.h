@@ -5,16 +5,17 @@
 #include "controller_roles.h"
 
 typedef struct {
-    bool online, seen, supervisor, a_down;
+    bool online, seen, supervisor, a_down, b_down, split;
     unsigned stick; // 0 = left, 1 = right; newest meaningful movement wins
     int32_t x, y, rx, ry, anchor_x, anchor_y, anchor_rx, anchor_ry;
 } display_pad_t;
 typedef struct { display_pad_t pad[2]; int owner; bool override_latched; } display_owner_t;
 static inline int32_t display_clamp(int32_t v) { return v < -512 ? -512 : v > 511 ? 511 : v; }
 static inline int display_abs(int v) { return v < 0 ? -v : v; }
-static inline int display_x(const display_pad_t *p) { return p->stick ? p->rx : p->x; }
-static inline int display_y(const display_pad_t *p) { return p->stick ? p->ry : p->y; }
+static inline int display_x(const display_pad_t *p) { return p->split || p->stick ? p->rx : p->x; }
+static inline int display_y(const display_pad_t *p) { return p->split || !p->stick ? p->y : p->ry; }
 static inline bool display_other_deflected(const display_pad_t *p) {
+    if (p->split) return display_abs(p->x) > 64 || display_abs(p->ry) > 64;
     return p->stick ? display_abs(p->x) > 64 || display_abs(p->y) > 64
                     : display_abs(p->rx) > 64 || display_abs(p->ry) > 64;
 }
@@ -47,8 +48,8 @@ static inline void display_leave(display_owner_t *s, unsigned slot) {
     s->pad[slot] = (display_pad_t){0};
     display_select(s);
 }
-// Shared mode preserves the original latest-meaningful-left-motion policy.
-// Only a fresh A press from the known blue controller toggles override.
+// Meaningful control-axis motion selects the owner. Each controller's B toggles
+// its own either-stick/split mapping; only known blue A toggles override.
 // True means redraw the selected output.
 // This is diagnostic arbitration, not a motor-control loop.
 static inline bool display_input_axes(display_owner_t *s, unsigned slot, int32_t x, int32_t y,
@@ -57,10 +58,13 @@ static inline bool display_input_axes(display_owner_t *s, unsigned slot, int32_t
     display_pad_t *p = &s->pad[slot];
     int old_owner = s->owner;
     x = display_clamp(x); y = display_clamp(y); rx = display_clamp(rx); ry = display_clamp(ry);
-    bool left_moved = !p->seen || display_abs(x - p->anchor_x) >= 64 || display_abs(y - p->anchor_y) >= 64;
-    bool right_moved = !p->seen || display_abs(rx - p->anchor_rx) >= 64 || display_abs(ry - p->anchor_ry) >= 64;
-    bool left_take = left_moved && (display_abs(x) >= 96 || display_abs(y) >= 96);
-    bool right_take = right_moved && (display_abs(rx) >= 96 || display_abs(ry) >= 96);
+    bool b = (buttons & 2u) != 0;
+    if (p->seen && b && !p->b_down) p->split = !p->split;
+    p->b_down = b;
+    bool left_moved = !p->seen || (!p->split && display_abs(x - p->anchor_x) >= 64) || display_abs(y - p->anchor_y) >= 64;
+    bool right_moved = !p->seen || display_abs(rx - p->anchor_rx) >= 64 || (!p->split && display_abs(ry - p->anchor_ry) >= 64);
+    bool left_take = left_moved && ((!p->split && display_abs(x) >= 96) || display_abs(y) >= 96);
+    bool right_take = right_moved && (display_abs(rx) >= 96 || (!p->split && display_abs(ry) >= 96));
     if (left_moved) { p->anchor_x = x; p->anchor_y = y; }
     if (right_moved) { p->anchor_rx = rx; p->anchor_ry = ry; }
     // An exact same-report tie keeps the current stick. Centring never lets a
@@ -77,6 +81,6 @@ static inline bool display_input_axes(display_owner_t *s, unsigned slot, int32_t
 }
 // LED-only variants preserve left-stick-only ownership.
 static inline bool display_input(display_owner_t *s, unsigned slot, int32_t x, int32_t y, uint16_t buttons) {
-    return display_input_axes(s, slot, x, y, 0, 0, buttons);
+    return display_input_axes(s, slot, x, y, 0, 0, buttons & ~2u);
 }
 #endif

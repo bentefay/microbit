@@ -29,7 +29,7 @@ export class BluepadMonitor {
         livenessAgeMs: Number(p[9]), maxIoMs: Number(p[10]) };
       if (changed) return `XBOX MOTORS: ${p[2]}. ` + ({ waiting: 'Front micro:bit A/B starts; keep sticks centred.',
         input: 'Waiting for controller input.', neutral: 'Centre both control sticks to enable.',
-        active: 'Either stick: up/down drives M1, left/right positions M2. Blue Xbox A toggles override.',
+        active: 'Xbox motor control active. B toggles either-stick/split controls; blue A toggles override.',
         stale: 'Input quiet; motors stopped. If it timed out during movement, centre the sticks to resume.',
         aborted: 'A+B stop latched; reset to enable again.', fault: `Motor I2C error ${p[8]}; stop attempted; reset required.` }[p[2]]);
       return;
@@ -116,7 +116,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

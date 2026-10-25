@@ -3,7 +3,46 @@
 #include "display_owner.h"
 static const uint8_t blue[6] = {0x5c,0xba,0x37,0xdd,0xd9,0x6c};
 static const uint8_t eli[6] = {0x5c,0xba,0x37,0x67,0x7f,0xda};
+static void check_modes(unsigned parent) {
+    unsigned child=1-parent;
+    display_owner_t s={.owner=-1};
+    display_join(&s,parent,blue); display_join(&s,child,eli);
+    display_input_axes(&s,parent,0,0,0,0,2); // held B at connection is ignored
+    assert(!s.pad[parent].split);
+    display_input_axes(&s,parent,0,0,0,0,0);
+    display_input_axes(&s,parent,0,0,0,0,2);
+    assert(s.pad[parent].split && !s.pad[child].split);
+    for (int i=0;i<50;i++) {
+        display_input_axes(&s,parent,511,0,0,511,2);
+        assert(s.pad[parent].split);
+        assert(display_x(&s.pad[parent])==0 && display_y(&s.pad[parent])==0);
+    }
+    display_input_axes(&s,child,0,-512,0,0,0);
+    display_input_axes(&s,parent,-512,0,0,-512,0); // unused split axes cannot steal
+    assert(s.owner==(int)child);
+    display_input_axes(&s,parent,511,511,-512,511,0);
+    assert(s.owner==(int)parent);
+    assert(display_x(&s.pad[parent])==-512 && display_y(&s.pad[parent])==511);
+    drive_control_t c={.center=180};
+    drive_input_t in={.present=true,.received=100};
+    drive_plan(&c,&in,100);
+    in.x=display_x(&s.pad[parent]); in.y=display_y(&s.pad[parent]);
+    drive_plan(&c,&in,100);
+    assert(c.speed==-20 && c.target==135); // independently held split axes combine
+    display_input_axes(&s,parent,511,511,-512,511,1); // blue A enters override
+    display_input_axes(&s,child,0,-512,0,0,2); // child's B only changes child's scheme
+    assert(s.override_latched && s.owner==(int)parent && s.pad[parent].split && s.pad[child].split);
+    display_input_axes(&s,parent,0,0,511,511,3); // held A + fresh B leaves override on
+    assert(s.override_latched && !s.pad[parent].split);
+    assert(display_x(&s.pad[parent])==511 && display_y(&s.pad[parent])==511);
+    display_input_axes(&s,parent,0,0,511,511,3);
+    assert(!s.pad[parent].split && s.override_latched);
+    display_leave(&s,parent); display_join(&s,parent,blue);
+    display_input_axes(&s,parent,0,0,0,0,2);
+    assert(!s.pad[parent].split && s.override_latched);
+}
 int main(void) {
+    check_modes(0); check_modes(1);
     assert(drive_axis(-512,20) == -20 && drive_axis(511,20) == 20);
     assert(drive_axis(-512,45) == -45 && drive_axis(511,45) == 45);
     for (int v = -64; v <= 64; v++) assert(drive_axis(v,45) == 0);
