@@ -3,7 +3,11 @@ export function bluepadReport(text: string) {
     axes: Array.from({ length: 4 }, () => ({ min: Infinity, max: -Infinity })),
     triggers: [0, 0], buttons: 0, dpad: 0, neutralSince: null as number | null,
     lastInputTime: null as number | null,
-    display: null as { ready: boolean; updates: number } | null });
+    display: null as { ready: boolean; updates: number } | null,
+    connections: 0, pairings: 0, disconnects: 0, reconnects: 0,
+    lastDisconnectTime: null as number | null,
+    lastReconnectTime: null as number | null,
+    inputAfterReconnect: false });
   let result = fresh();
   let lastStatusTime = 0;
   for (const raw of text.split('\n')) {
@@ -22,8 +26,25 @@ export function bluepadReport(text: string) {
     }
     if (p[0] === 'BP_DISPLAY' && p.length === 4 && p.slice(1).every(x => /^\d+$/.test(x)) &&
       ['0', '1'].includes(p[2])) result.display = { ready: p[2] === '1', updates: Number(p[3]) };
+    if (record.line === 'SM_EVENT_PAIRING_STARTED') result.pairings++;
+    if (p.length === 2 && /^\d+$/.test(p[1])) {
+      if (p[0] === 'BP_DISCONNECTED') {
+        result.disconnects++;
+        result.lastDisconnectTime = Number(p[1]);
+        result.lastReconnectTime = null;
+        result.inputAfterReconnect = false;
+      } else if (p[0] === 'BP_CONNECTED') {
+        result.connections++;
+        if (result.lastDisconnectTime !== null && result.lastReconnectTime === null) {
+          result.reconnects++;
+          result.lastReconnectTime = Number(p[1]);
+        }
+      }
+    }
     if (p[0] !== 'BP_INPUT' || p.length !== 12 || !p.slice(1).every(x => /^-?\d+$/.test(x))) continue;
     const n = p.slice(1).map(Number);
+    if (result.lastReconnectTime !== null && n[0] >= result.lastReconnectTime)
+      result.inputAfterReconnect = true;
     result.snapshots++;
     n.slice(2, 6).forEach((value, i) => {
       result.axes[i].min = Math.min(result.axes[i].min, value);

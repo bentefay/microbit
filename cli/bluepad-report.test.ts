@@ -24,3 +24,14 @@ test('display readiness and update counts come from firmware, and reset with it'
   expect(bluepadReport(log + '\n' + lines('BP_STATUS,1,10,waiting,0,0')).display).toBeNull();
   expect(bluepadReport(lines('BP_DISPLAY,1000,0,0')).display?.ready).toBe(false);
 });
+test('recovery requires disconnect, a later connection and fresh input', () => {
+  const log = lines('BP_STATUS,1,1000,connected,1,0', 'SM_EVENT_PAIRING_STARTED',
+    'BP_CONNECTED,1100', 'BP_DISCONNECTED,2000', 'BP_CONNECTED,3000');
+  const beforeInput = bluepadReport(log);
+  expect(beforeInput.connections).toBe(2);
+  expect(beforeInput.reconnects).toBe(1);
+  expect(beforeInput.pairings).toBe(1);
+  expect(beforeInput.inputAfterReconnect).toBe(false);
+  expect(bluepadReport(log + '\n' + lines('BP_INPUT,3100,1,0,0,0,0,0,0,0,0,0')).inputAfterReconnect).toBe(true);
+  expect(bluepadReport(log + '\n' + lines('BP_DISCONNECTED,4000')).inputAfterReconnect).toBe(false);
+});
