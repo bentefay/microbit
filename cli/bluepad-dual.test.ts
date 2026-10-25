@@ -4,6 +4,10 @@ test('two identities and simultaneous display writes stay separate across slot r
   const m = new DualPads();
   m.push('BP_READY,1000,0,AA:BB:CC:DD:EE:01');
   m.push('BP_READY,2000,1,AA:BB:CC:DD:EE:02');
+  m.push('BP_STICK,2001,1,1');
+  expect(m.pads[1].activeStick).toBe(1);
+  m.push('BP_STICK,2002,1,2');
+  expect(m.pads[1].activeStick).toBe(1);
   m.push('BP_PEERS,2100,3,0');
   m.push('BP_PAD,2200,0,7,500,0,0,0,0,0,0,0,0');
   m.push('BP_PAD,2201,1,3,-500,0,0,0,0,0,0,0,0');

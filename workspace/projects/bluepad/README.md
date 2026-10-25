@@ -59,12 +59,15 @@ experimental; compilation does not establish pairing or reliable input.
 select the separate continuous-control artifact. This is for the confirmed loose
 M1/M2 shafts, not a chassis or steering linkage. Front micro:bit A or B begins
 scanning and initializes stopped motors; no bus commands run before that press.
-M2's current encoder position becomes the bench centre. Centred left-Y/right-X
-input enables control. Left Y maps to continuous signed M1 speed, capped at 20%;
-right X maps to a position within ±45° of that centre, at 15% servo speed.
-Returning the sticks stops M1 and returns M2 to centre. These are free-shaft limits.
+M2's current encoder position becomes the bench centre. Both sticks centred enables
+control. Either stick has the same mapping: Y controls continuous signed M1 speed,
+capped at 20%; X controls position within ±45° of centre, at 15% servo speed.
+Returning the controlling stick stops M1 and returns M2 to centre. These are free-shaft limits.
 
-Either stick's meaningful movement selects the shared owner in this variant.
+Either stick's meaningful movement selects the shared owner and controlling stick.
+The LED dot follows that stick. A same-report tie retains the previously selected
+stick; a stationary deflected stick cannot steal control when the other centres.
+`BP_STICK,time,slot,stick` identifies the current choice (0 left, 1 right).
 Blue Xbox A toggles exclusive control of both motors and the LED dot. Identity,
 held-A handling and override persistence match the LED diagnostic. Lost blue in
 override stops both motors and does not hand control to Eli. Owner disconnection
@@ -78,23 +81,24 @@ with the vendor's 4 ms exclusive bus settling interval and no 500 ms optional wa
 Encoder reads occur once at initialization, not in the control loop. Bluetooth
 callbacks only publish input and never perform motor I2C operations.
 
-An input age over 500 ms stops the motors; if the last demand was non-neutral,
+An age over 500 ms since the last input notification or confirmed peer response
+stops the motors; if the last demand was non-neutral,
 fresh centred input is required to resume. A previously neutral controller can
 resume from its next fresh report, so normal quiet idle does not demand re-arming.
-This is a watchdog, not a 500 ms command delay. Freshness is
-timestamped only on actual selected-controller HID callbacks, never a heartbeat,
-connection flag or the other controller's input. A+B latches a stop until reset.
-When the selected Xbox stops sending notifications for 150 ms, the Bluetooth
-thread asynchronously requests its HID input report (report 1). Successful reads
-arrive through the normal input parser and refresh the actual state. Sending a
-request alone never refreshes the watchdog. `BP_POLL,time,slot,requests,status`
-records attempts and the last immediate API status; successful data arrival must
-be checked separately. This supports steadily held commands without blocking or
-continuously polling while normal notifications are arriving.
+This is a watchdog, not a 500 ms command delay. Sending a request, a local heartbeat,
+a connection flag or the other controller's input cannot refresh it. A+B latches
+a stop until reset. After 150 ms of quiet, the Bluetooth thread asynchronously
+reads the selected controller's HID Information characteristic (UUID 0x2a4a).
+A response refreshes liveness but never changes stick/button state. The handle
+is discovered on the first probe and reused thereafter. `BP_POLL` records device
+time, slot, requests, actual responses and last API/ATT status. This keeps held
+commands continuous without blocking or polling during regular notifications.
+Do not use GET_REPORT for current controls: hardware testing showed these Xbox
+controllers return a neutral template, which incorrectly interrupts held input.
 I2C faults also stop/disarm and require reset; physical power-off remains available.
 Software watchdog timing is not a measured radio-loss stop-time guarantee.
 
-`BP_DRIVE,time,state,owner,speed,target,centre,writes,result,input_age_ms,max_write_ms`
+`BP_DRIVE,time,state,owner,speed,target,centre,writes,result,liveness_age_ms,max_write_ms`
 reports requested outputs and I2C completion status at 5 Hz. Stable demands should
 leave the write counter unchanged. Position fields are modulo 360; the target is
 not measured shaft position. The live monitor saves this alongside both controllers.

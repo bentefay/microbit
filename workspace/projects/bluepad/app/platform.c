@@ -12,9 +12,12 @@
 #ifdef ENABLE_MOTOR_DRIVE
 #include "motor_drive.h"
 #include <zephyr/kernel.h>
-#include <ble/gatt-service/hids_host.h>
+#include <ble/gatt_client.h>
 static uint32_t received[2], motor_epoch, polled[2], polls[2];
 static uint8_t poll_status[2];
+static uint16_t probe_handle[2];
+static bool probe_pending[2];
+static uint32_t probe_responses[2];
 #endif
 
 BUILD_ASSERT(BUTTON_A == 1u, "Override toggle must match Bluepad32's A button");
@@ -38,9 +41,37 @@ static void publish_motor_input(void) {
     if (owner >= 0) {
         const display_pad_t *p = &display_state.pad[owner];
         input.present = p->online && p->seen;
-        input.ly = p->y; input.rx = p->rx; input.received = received[owner];
+        input.y = display_y(p); input.x = display_x(p); input.received = received[owner];
+        input.other_deflected = display_other_deflected(p);
     }
     motor_drive_input(input);
+}
+static void probe_event(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size) {
+    (void)channel; (void)size;
+    if (packet_type != HCI_EVENT_PACKET) return;
+    uint8_t event = hci_event_packet_get_type(packet);
+    hci_con_handle_t connection;
+    if (event == GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT)
+        connection = gatt_event_characteristic_value_query_result_get_handle(packet);
+    else if (event == GATT_EVENT_QUERY_COMPLETE)
+        connection = gatt_event_query_complete_get_handle(packet);
+    else return;
+    uni_hid_device_t *d = uni_hid_device_get_instance_for_connection_handle(connection);
+    if (!d) return;
+    int slot = uni_hid_device_get_idx_for_instance(d);
+    if (slot < 0 || slot >= 2 || !display_state.pad[slot].online) return;
+    if (event == GATT_EVENT_QUERY_COMPLETE) {
+        probe_pending[slot] = false;
+        poll_status[slot] = gatt_event_query_complete_get_att_status(packet);
+        return;
+    }
+    // HID Information (UUID 0x2a4a) is readable independently of input reports.
+    // A received value proves a peer response, not a new stick position.
+    if (gatt_event_characteristic_value_query_result_get_value_length(packet) != 4) return;
+    probe_handle[slot] = gatt_event_characteristic_value_query_result_get_value_handle(packet);
+    received[slot] = k_uptime_get_32();
+    probe_responses[slot]++;
+    publish_motor_input(); // retains the last actual notification's axes/buttons
 }
 #endif
 static const char *state(void) {
@@ -63,7 +94,7 @@ static void draw_owner(void) {
     if (display_state.owner < 0) joystick_matrix_clear();
     else {
         const display_pad_t *p = &display_state.pad[display_state.owner];
-        joystick_matrix_update(p->x, p->y);
+        joystick_matrix_update(display_x(p), display_y(p));
         matrix_updates++;
         if (display_peers(&display_state) == 3) both_updates[display_state.owner]++;
     }
@@ -79,13 +110,15 @@ static void tick(btstack_timer_source_t *source) {
         gpio_pin_get_dt(&buttons[1]) > 0) motor_drive_abort();
     int owner = display_state.owner;
     uint32_t current = k_uptime_get_32();
-    if (gate.started && owner >= 0 && (uint32_t)(current - received[owner]) >= 150 &&
+    if (gate.started && owner >= 0 && !probe_pending[owner] && (uint32_t)(current - received[owner]) >= 150 &&
         (uint32_t)(current - polled[owner]) >= 150) {
         uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(owner);
         polled[owner] = current; polls[owner]++;
-        // Xbox BLE gamepad input is report 1. BTstack delivers successful reads
-        // through the usual HID callback; only that response updates freshness.
-        poll_status[owner] = hids_host_send_get_report(d->hids_cid, 1, HID_REPORT_TYPE_INPUT);
+        // Do not GET_REPORT: these Xbox controllers return a neutral template.
+        poll_status[owner] = probe_handle[owner]
+            ? gatt_client_read_value_of_characteristic_using_value_handle(probe_event, d->conn.handle, probe_handle[owner])
+            : gatt_client_read_value_of_characteristics_by_uuid16(probe_event, d->conn.handle, 1, 0xffff, 0x2a4a);
+        probe_pending[owner] = poll_status[owner] == ERROR_CODE_SUCCESS;
     }
 #endif
     if (buttons_ready && bluetooth_ready && !gate.started) {
@@ -116,8 +149,9 @@ static void tick(btstack_timer_source_t *source) {
         for (int i = 0; i < 2; i++) if (display_state.pad[i].online) {
             uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(i);
             printk("BP_SLOT,%u,%d,%s,%u,%u\n", now, i, bd_addr_to_str(d->conn.btaddr), pad_reports[i], both_updates[i]);
+            printk("BP_STICK,%u,%d,%u\n", now, i, display_state.pad[i].stick);
 #ifdef ENABLE_MOTOR_DRIVE
-            printk("BP_POLL,%u,%d,%u,%u\n", now, i, polls[i], poll_status[i]);
+            printk("BP_POLL,%u,%d,%u,%u,%u\n", now, i, polls[i], probe_responses[i], poll_status[i]);
 #endif
         }
     }
@@ -178,6 +212,7 @@ static uni_error_t ready(uni_hid_device_t *d) {
 #ifdef ENABLE_MOTOR_DRIVE
     received[slot] = 0;
     polled[slot] = 0; polls[slot] = 0; poll_status[slot] = 0;
+    probe_handle[slot] = 0; probe_pending[slot] = false; probe_responses[slot] = 0;
     publish_motor_input();
 #endif
     pad_reports[slot] = 0; last_printed[slot] = 0; both_updates[slot] = 0;
@@ -196,6 +231,7 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     const uni_gamepad_t *g = &ctl->gamepad;
     // Display every received report BEFORE the serial snapshot rate limit.
     bool was_override = display_state.override_latched;
+    unsigned old_stick = display_state.pad[slot].stick;
 #ifdef ENABLE_MOTOR_DRIVE
     received[slot] = k_uptime_get_32();
     if (display_input_axes(&display_state, slot, g->axis_x, g->axis_y,
@@ -206,6 +242,8 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
 #endif
     if (was_override != display_state.override_latched) priority();
     uint32_t now = btstack_run_loop_get_time_ms();
+    if (old_stick != display_state.pad[slot].stick)
+        printk("BP_STICK,%u,%d,%u\n", now, slot, display_state.pad[slot].stick);
     if (pad_reports[slot] > 1 && (uint32_t)(now - last_printed[slot]) < 200) return;
     last_printed[slot] = now;
     printk("BP_PAD,%u,%d,%u,%d,%d,%d,%d,%d,%d,%u,%u,%u\n", now, slot, pad_reports[slot],

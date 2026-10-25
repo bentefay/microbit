@@ -12,7 +12,7 @@ export class BluepadMonitor {
   lastInput: number[] | null = null;
   motor: { state: string; step: number; result: number; deviceMs: number } | null = null;
   drive: { state: string; owner: number; speed: number; target: number; center: number;
-    writes: number; result: number; inputAgeMs: number; maxIoMs: number; deviceMs: number } | null = null;
+    writes: number; result: number; livenessAgeMs: number; maxIoMs: number; deviceMs: number } | null = null;
   private uptime = 0;
   private sawStart = false;
   dual = new DualPads();
@@ -26,10 +26,10 @@ export class BluepadMonitor {
       const changed = this.drive?.state !== p[2];
       this.drive = { deviceMs: Number(p[1]), state: p[2], owner: Number(p[3]), speed: Number(p[4]),
         target: Number(p[5]), center: Number(p[6]), writes: Number(p[7]), result: Number(p[8]),
-        inputAgeMs: Number(p[9]), maxIoMs: Number(p[10]) };
+        livenessAgeMs: Number(p[9]), maxIoMs: Number(p[10]) };
       if (changed) return `XBOX MOTORS: ${p[2]}. ` + ({ waiting: 'Front micro:bit A/B starts; keep sticks centred.',
         input: 'Waiting for controller input.', neutral: 'Centre both control sticks to enable.',
-        active: 'Left Y drives M1; right X positions M2. Blue Xbox A toggles override.',
+        active: 'Either stick: up/down drives M1, left/right positions M2. Blue Xbox A toggles override.',
         stale: 'Input quiet; motors stopped. If it timed out during movement, centre the sticks to resume.',
         aborted: 'A+B stop latched; reset to enable again.', fault: `Motor I2C error ${p[8]}; stop attempted; reset required.` }[p[2]]);
       return;
@@ -116,7 +116,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

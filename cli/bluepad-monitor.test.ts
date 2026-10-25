@@ -5,8 +5,8 @@ test('continuous motor status tracks commands, stale stop and firmware restart',
   const m = new BluepadMonitor();
   m.push('BP_STATUS,1,10000,waiting,0,0', 0);
   expect(m.push('BP_DRIVE,10000,waiting,-1,0,-1,-1,0,0,0,0', 1)).toContain('Front micro:bit');
-  expect(m.push('BP_DRIVE,11000,active,1,20,35,350,10,0,10,2', 2)).toContain('Left Y');
-  expect(m.drive).toMatchObject({ speed: 20, target: 35, center: 350, writes: 10, maxIoMs: 2 });
+  expect(m.push('BP_DRIVE,11000,active,1,20,35,350,10,0,10,2', 2)).toContain('Either stick');
+  expect(m.drive).toMatchObject({ speed: 20, target: 35, center: 350, writes: 10, livenessAgeMs: 10, maxIoMs: 2 });
   expect(m.push('BP_DRIVE,12000,stale,1,0,-1,350,12,0,501,2', 3)).toContain('motors stopped');
   m.push('BP_STATUS,1,1000,waiting,0,0', 4);
   expect(m.drive).toBeNull();

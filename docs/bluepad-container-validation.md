@@ -2,13 +2,16 @@
 
 ## Xbox continuous drive and position steering
 
-The `--motor-drive` variant now uses the selected Xbox input for continuous M1
-speed (left Y, ±20%) and M2 position (right X, ±45° from captured encoder centre,
+The `--motor-drive` variant now uses either stick on the selected Xbox for continuous M1
+speed (Y, ±20%) and M2 position (X, ±45° from captured encoder centre,
 15% servo speed). It is for the already-confirmed loose-shaft bench. Front A/B
 initializes stopped outputs and begins scanning; neutral input enables movement.
 Blue Xbox A exclusively selects blue input for both motors, by its stable identity.
-Shared mode accepts meaningful motion of either stick; it does not mix controllers'
-individual axes. Owner disconnect requires neutral before enabling again.
+Shared mode accepts meaningful motion of either stick; it does not mix sticks'
+or controllers' individual axes. The last meaningfully moved stick supplies both
+axes and the LED dot. A same-report tie keeps the current stick; centring it does
+not hand control to a stationary deflected stick. Both sticks must be centred
+before initial/recovery arming. Owner disconnect requires neutral before enabling again.
 
 Motor I2C runs in its own thread, checks the latest snapshot every 10 ms and sends
 only changed speed/target demands, drive first. Position commands retain 4 ms bus
@@ -16,27 +19,42 @@ settling; no 500 ms motion wait or loop encoder polling is used. A+B and I2C fau
 latch stop until reset. Reports older than 500 ms stop output; stale non-neutral
 input also requires neutral before resuming. Quiet idle at neutral remains ready.
 
-Earlier captures show long gaps in unchanged Xbox notifications. The selected
-controller is therefore queried asynchronously with `hids_host_send_get_report`
-(report 1) after 150 ms of quiet. Pinned `hids_host.c` dispatches successful reads
-as normal HID reports, and `uni_bt_le.c` parses them through the controller callback.
-Requests and readiness never count as fresh data. `BP_POLL` records attempts;
-`BP_DRIVE` exposes requested outputs, input age, write count and maximum observed
-I2C write duration. Hardware support for these reads and continuous control is pending.
+Earlier captures show long gaps in unchanged Xbox notifications. The first
+continuous-control build queried HID report 1 after 150 ms of quiet. Hardware
+testing exposed an incompatibility: readbacks returned neutral `0,0,8,8` axes
+while a real stick was held. Ben observed drive stop after about half a second and
+steering move then return. The capture shows a +20 speed at 64581 ms, followed by
+the neutral readback and a zero command at 64992 ms. This was not a motor API wait.
+
+The fix reads HID Information (UUID 0x2a4a) separately for peer liveness, caching
+its discovered handle. Only real HID notifications alter axes/buttons/ownership.
+An actual characteristic-value response refreshes liveness without changing the
+held demand. Requests, local readiness and the other controller never refresh it.
+`BP_POLL` records requests, responses and last API/ATT status; `BP_DRIVE` exposes
+requested outputs, liveness age, write count and maximum observed I2C write duration.
+Physical recheck of the corrected held-input behavior is pending.
 These paths were inspected through the checked-in `run bluepad inspect` command;
 the header is `ble/gatt-service/hids_host.h` (not `hids_client.h`).
 
-Validation: 57 CLI tests / 714 assertions and seven C suites with ASan/UBSan pass.
+Validation: 57 CLI tests / 716 assertions and seven C suites with ASan/UBSan pass.
 Coverage includes held continuous demand without repeated writes, steering wrap,
 centering, input timeout and neutral recovery, disconnect generations, terminal
 abort/fault, both controller-slot orders, opposing inputs under override, and
-right-stick-only shared ownership. Explicit flash selection protects default
-motor-free and finite-bench variants. Native build: 248708 B flash, 53352 B static
+right-stick-only shared ownership, identical diagonal control from either stick,
+held-unused-stick rejection and neutral gating. Explicit flash selection protects default
+motor-free and finite-bench variants. Initial build: 248708 B flash, 53352 B static
 RAM. HEX SHA-256:
 `efdb52f765e911b4c713f0e8def2b1a63cff858dd59dc8851d212ac2e8b5f35a`.
 Flashed at 07:59:58 UTC with same-device remount and no `FAIL.TXT`. The live
 monitor observed waiting firmware and `BP_DRIVE` waiting with zero motor writes.
 Capture: `.cache/observations/2026-10-25T08-00-02-265Z-bluepad-session-f4eb9555.jsonl`.
+
+The corrected liveness probe and identical-stick controls passed the same CLI/C
+suites and a new native build: 249216 B flash / 53376 B static RAM. Corrected HEX:
+`b18d4d40b13ebb9691b8e5546a6073eae1b0e78ee686a1d80bb44488f8aa2c89`.
+Flashed at 08:06:15 UTC, same-device remount with no `FAIL.TXT`; waiting heartbeat
+and zero motor writes observed. Corrected capture:
+`.cache/observations/2026-10-25T08-06-18-557Z-bluepad-session-f26c611b.jsonl`.
 
 ## Native finite loose-motor bench
 

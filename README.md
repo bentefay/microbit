@@ -32,16 +32,15 @@ Never find steering limits by driving into a mechanical stop.
 
 ## Controls and firmware status
 
-The intended mapping is **left stick forward/back = proportional drive** and
-**right stick left/right = proportional steering position**. That resembles the
-movement/aim split in FPS controls. Returning the steering stick to center should
-request the measured straight-ahead position. It must not merely stop a steering
-motor wherever it happens to be.
+The Xbox mapping is the same on **both sticks: up/down = proportional drive,
+left/right = steering position**. The most recently moved stick controls both
+axes; the LED dot follows it. Centring it stops drive and returns steering to its
+centre. Blue Xbox A toggles exclusive control over Eli's controller.
 
 **Currently flashed (2026-10-25): experimental Bluepad32 Xbox loose-motor control.**
 Either front micro:bit button starts scanning and initializes stopped outputs.
-Centred input enables continuous M1 drive from left Y (20% cap) and M2 position
-from right X (±45° around its captured loose-shaft centre, at 15% servo speed).
+Centred sticks enable continuous M1 drive from Y (20% cap) and M2 position
+from X (±45° around its captured loose-shaft centre, at 15% servo speed).
 Blue Xbox A toggles exclusive control. A+B on the micro:bit latches a stop.
 This is the explicit `--motor-drive` variant; default report-only remains motor-free.
 Both loose motors already passed finite movement in both directions on the native
@@ -73,6 +72,8 @@ described in [docs/receiver-investigation.md](docs/receiver-investigation.md).
 The PS2 input-lag cause is unresolved; no timing workaround has been declared a fix.
 
 The normal program is **`car.startDriving()`**, in `drive.ts`.
+This older MakeCode program retains the previous split-stick mapping; the current
+native Xbox firmware uses either stick for both axes as described above.
 `run car-mode drive` selects it; `run car-mode receiver-lab` selects the investigation.
 Selection changes `main.ts` and its block only; build and flash remain separate commands.
 Settings are in `settings.ts`; diagnostic programs remain separately selectable.

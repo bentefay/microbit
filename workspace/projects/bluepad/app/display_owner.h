@@ -6,11 +6,18 @@
 
 typedef struct {
     bool online, seen, supervisor, a_down;
+    unsigned stick; // 0 = left, 1 = right; newest meaningful movement wins
     int32_t x, y, rx, ry, anchor_x, anchor_y, anchor_rx, anchor_ry;
 } display_pad_t;
 typedef struct { display_pad_t pad[2]; int owner; bool override_latched; } display_owner_t;
 static inline int32_t display_clamp(int32_t v) { return v < -512 ? -512 : v > 511 ? 511 : v; }
 static inline int display_abs(int v) { return v < 0 ? -v : v; }
+static inline int display_x(const display_pad_t *p) { return p->stick ? p->rx : p->x; }
+static inline int display_y(const display_pad_t *p) { return p->stick ? p->ry : p->y; }
+static inline bool display_other_deflected(const display_pad_t *p) {
+    return p->stick ? display_abs(p->x) > 64 || display_abs(p->y) > 64
+                    : display_abs(p->rx) > 64 || display_abs(p->ry) > 64;
+}
 static inline unsigned display_peers(const display_owner_t *s) {
     return (s->pad[0].online ? 1u : 0u) | (s->pad[1].online ? 2u : 0u);
 }
@@ -50,15 +57,21 @@ static inline bool display_input_axes(display_owner_t *s, unsigned slot, int32_t
     display_pad_t *p = &s->pad[slot];
     int old_owner = s->owner;
     x = display_clamp(x); y = display_clamp(y); rx = display_clamp(rx); ry = display_clamp(ry);
-    bool deflected = display_abs(x) >= 96 || display_abs(y) >= 96 || display_abs(rx) >= 96 || display_abs(ry) >= 96;
-    bool moved = !p->seen || display_abs(x - p->anchor_x) >= 64 || display_abs(y - p->anchor_y) >= 64 ||
-                 display_abs(rx - p->anchor_rx) >= 64 || display_abs(ry - p->anchor_ry) >= 64;
-    if (moved) { p->anchor_x = x; p->anchor_y = y; p->anchor_rx = rx; p->anchor_ry = ry; }
+    bool left_moved = !p->seen || display_abs(x - p->anchor_x) >= 64 || display_abs(y - p->anchor_y) >= 64;
+    bool right_moved = !p->seen || display_abs(rx - p->anchor_rx) >= 64 || display_abs(ry - p->anchor_ry) >= 64;
+    bool left_take = left_moved && (display_abs(x) >= 96 || display_abs(y) >= 96);
+    bool right_take = right_moved && (display_abs(rx) >= 96 || display_abs(ry) >= 96);
+    if (left_moved) { p->anchor_x = x; p->anchor_y = y; }
+    if (right_moved) { p->anchor_rx = rx; p->anchor_ry = ry; }
+    // An exact same-report tie keeps the current stick. Centring never lets a
+    // stationary deflected stick steal control back.
+    if (left_take && !right_take) p->stick = 0;
+    if (right_take && !left_take) p->stick = 1;
     bool a = (buttons & 1u) != 0; // Bluepad32 BUTTON_A, checked in platform.c.
     bool a_pressed = p->seen && a && !p->a_down;
     p->x = x; p->y = y; p->rx = rx; p->ry = ry; p->seen = true; p->a_down = a;
     if (p->supervisor && a_pressed) s->override_latched = !s->override_latched;
-    if (!s->override_latched && (s->owner < 0 || (moved && deflected))) s->owner = (int)slot;
+    if (!s->override_latched && (s->owner < 0 || left_take || right_take)) s->owner = (int)slot;
     display_select(s);
     return s->owner == (int)slot || s->owner != old_owner;
 }

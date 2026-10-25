@@ -8,19 +8,23 @@ loose-motor stage below uses connected, secured free shafts.
 ## Native loose-motor sequence
 
 The finite sequence below passed. The next build, `--motor-drive`, connects Xbox
-left Y to continuous M1 speed (20% cap) and right X to M2 position (±45° around
+either stick's Y to continuous M1 speed (20% cap) and its X to M2 position (±45° around
 its captured loose-shaft centre, 15% speed). Use the same confirmed free-shaft
 setup. Front micro:bit A/B starts; neutral control axes enable movement. Both
 sticks participate in shared ownership; blue Xbox A toggles exclusive ownership.
 Only changed demands generate motor writes. A+B latches a stop until reset.
 
-One combined physical check after live readiness: hold left up for three seconds,
-centre, hold down, centre; move right stick left/right and release to centre.
+The first continuous run exposed neutral GET_REPORT readbacks interrupting held
+inputs. That readback is removed from the control path; independent HID Information
+reads now test peer liveness without altering axes. Both sticks now do the same job.
+After live readiness, hold either stick up for three seconds, then centre; hold
+it sideways for three seconds, then release. Repeat with the other stick to check
+the new mapping and dot selection; no need to repeat the finite-motor test.
 Then enable blue override, oppose Eli up with blue down, centre blue, disable
 override and move Eli's stick. Confirm continuous rotation, steering returning
 to its starting position, and override. Use telemetry to check input freshness,
 speed/target ranges, command-write suppression and I2C results automatically.
-Physical continuous-control result pending; do not repeat the finite sequence.
+Corrected continuous-control result pending; do not repeat the finite sequence.
 
 Ben authorized the motor test and confirmed both motors remain loose, secured,
 clear of hands/objects, with the Nezha power switch accessible. No steering linkage

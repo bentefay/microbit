@@ -1,4 +1,4 @@
-type Pad = { address: string; reports: number; updatesWhileBothConnected: number;
+type Pad = { address: string; reports: number; updatesWhileBothConnected: number; activeStick?: number;
   snapshots: number; lastInput: number[] | null };
 export class DualPads {
   mask = 0;
@@ -44,6 +44,8 @@ export class DualPads {
     }
     const slot = p[2];
     if (!['0', '1'].includes(slot)) return;
+    if (p[0] === 'BP_STICK' && p.length === 4 && /^\d+$/.test(p[1]) && ['0', '1'].includes(p[3]) && this.pads[slot])
+      this.pads[slot].activeStick = Number(p[3]);
     if ((p[0] === 'BP_READY' && p.length === 4 || p[0] === 'BP_SLOT' && p.length === 6) &&
       /^[0-9A-F]{2}(:[0-9A-F]{2}){5}$/.test(p[3])) {
       if (!this.pads[slot] || this.pads[slot].address !== p[3] || p[0] === 'BP_READY')
