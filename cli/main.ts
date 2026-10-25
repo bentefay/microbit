@@ -13,6 +13,7 @@ import { receiverReport } from './receiver-report';
 import { bluepad, bluepadInputHash, validateBluepadHex } from './bluepad';
 import { monitorBluepad } from './bluepad-monitor';
 import { bluepadReport } from './bluepad-report';
+import { bluepadTiming } from './bluepad-timing';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -221,6 +222,7 @@ const help = `micro:bit workspace — run COMMAND
   bluepad test|versions|lock-system    Container packet tests / tool versions / Debian lock
   bluepad monitor              Continuous capture; wait for micro:bit A/B start signal
   bluepad report FILE          Summarize captured input coverage and neutral return
+  bluepad timing FILE          Compare report cadence during sampled stick movement
   bluepad inspect PATH [TEXT]   Read pinned native source inside Docker
   native lock                  Resolve native release tags and transitive source pins
   provision [PROJECT]          Alias for an offline first build; sources are in the image
@@ -277,6 +279,7 @@ export async function main(args: string[]) {
       case 'bluepad':
         if (arg === 'monitor' && rest.length === 0) await serial('10', 'bluepad-session', true);
         else if (arg === 'report' && rest.length === 1) console.log(JSON.stringify(bluepadReport(await readFile(resolve(rest[0]), 'utf8')), null, 2));
+        else if (arg === 'timing' && rest.length === 1) console.log(JSON.stringify(bluepadTiming(await readFile(resolve(rest[0]), 'utf8')), null, 2));
         else await bluepad(root, [arg, ...rest], command, validateHex);
         break;
       case 'pxt': await container('pxt', arg, rest); break;

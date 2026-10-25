@@ -35,10 +35,19 @@ does not schedule the assistant to resume; live supervision requires an active t
 | Controller off/on | Turn controller off, wait for next cue, turn it on normally | Disconnect/reconnect events, new reports | Passed: existing bond reused, encryption and input recovered; user confirmed display |
 | Board restart persistence | Reset micro:bit, then press either front button with controller on | New boot, retained bond, encrypted reconnect without pairing | Passed: A detected first, bond resolved, re-encryption and new input; zero new pairings |
 | Second controller | First controller off; second in pairing mode, start fresh session | Identity distinction, pairing, input coverage | Passed: distinct identity, firmware 5.23.6.0, all input checks and neutral return |
-| Both saved pairings | Turn second off; restart micro:bit, start first normally; then switch back to second | Existing bond resolution and re-encryption for each, no new pairing | Pending; configured for two saved bonds and one active connection |
+| Both saved pairings | Turn second off; restart micro:bit, start first normally; then switch back to second | Existing bond resolution and re-encryption for each, no new pairing | Passed: both identities resolved after restart; two connections, zero pairings in that boot |
 | Motor commissioning | Separate controlled bench setup and measured steering limits | Separate implementation and review | Not authorized by these diagnostic starts |
 
 Keep restart persistence distinct from pairing again. Time between a cue and input
 includes human reaction; it is not radio latency. A firmware heartbeat proves loop
 liveness, not controller radio freshness. The LED display is visual feedback with
 a nominal 50 Hz scan, not an instrumented end-to-end latency measurement.
+
+The second controller initially felt slower. `run bluepad timing CAPTURE.jsonl`
+confirmed roughly 60 ms mean callback spacing during sampled movement, versus
+15 ms for recent first-controller sessions. After a normal second-controller
+reconnect, its estimate became 15 ms and the user reported improved responsiveness.
+No firmware change was made between those two second-controller sessions. Both
+controllers have exhibited 60 ms in an early session; this is not established as
+a fixed hardware difference. Root cause and negotiated BLE parameters remain
+unverified. If revisited, add connection-parameter telemetry before changing policy.

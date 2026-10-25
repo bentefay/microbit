@@ -45,6 +45,9 @@ A physical A-button start, Xbox pairing, control coverage and sampled neutral re
 have passed. Controller power-cycle recovery and saved-pairing recovery after a
 micro:bit restart also passed. See
 [container validation](docs/bluepad-container-validation.md).
+Both Xbox controllers passed input checks and retain their saved pairings across
+restart; one controller connects at a time. A slower initial report cadence on the
+second improved after normal reconnection; its cause is still under investigation.
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
 the [minimal-input bench runsheet](docs/xbox-bench-runsheet.md).
 

@@ -1,5 +1,37 @@
 # Bluepad container integration validation
 
+## Both bonds retained; report cadence comparison
+
+After pairing the second controller, the user switched it off, restarted the
+micro:bit, and started the first controller normally. Its identity resolved from
+the stored bond and re-encryption succeeded. Switching back to the second, without
+another board reset, likewise resolved its stored identity and re-encrypted. The
+boot recorded two connections and zero pairing events, with fresh input after the
+switch. Both saved pairings survived the restart; active connections remain limited
+to one. Brief "no more available device slots" logs during the swap ended when the
+first link's supervision timeout freed the slot; the second then connected.
+
+The user reported that the second initially felt slower. The checked-in
+`run bluepad timing CAPTURE.jsonl` command estimates callback cadence from device
+timestamp and report-counter differences between 90–250 ms snapshots whose axes
+change by at least 16 units. It separates connections and resets, excludes long
+idle gaps, and reports the median of the per-window mean spacings.
+
+| Connection sample | Moving windows at checkpoint | Median mean callback spacing |
+| --- | ---: | ---: |
+| First controller, earliest capture (before LED firmware) | 39 | 60 ms |
+| First controller, LED sessions | 234 / 251 / 105 / 211 | 15 ms |
+| Second controller, initial pairing session | 280 | 60 ms |
+| Second controller, normal bonded reconnect | 74 | 15 ms |
+
+The user confirmed the second felt much better after reconnecting. There was no
+firmware change between its 60 ms and 15 ms sessions. These are callback-cadence
+estimates, not measurements of individual packet jitter, negotiated BLE interval,
+physical input latency or LED onset. The underlying cause remains unverified;
+connection-parameter telemetry is the next diagnostic if the slower state recurs.
+Both remembered-pairing checks and this comparison passed without motor code.
+The CLI suite now passes 51 tests with 668 assertions, including the timing report.
+
 ## Second controller
 
 The second controller presented a distinct identity and Microsoft firmware
@@ -12,7 +44,7 @@ locally as `.cache/observations/bluepad-second-controller-result.json`.
 The pinned application config has `NVM_NUM_DEVICE_DB_ENTRIES=2` (two stored BLE
 bonds), while Zephyr, BTstack and Bluepad32 are configured for one active
 controller connection. Two remembered pairings do not imply simultaneous input.
-Switching between both saved pairings is a separate pending check.
+Switching between both saved pairings subsequently passed, as recorded above.
 
 ## Saved pairing after micro:bit reset
 
