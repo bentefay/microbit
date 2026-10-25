@@ -10,8 +10,22 @@ The current firmware supports two active links. A front-button press is required
 only once per micro:bit boot. Initial discovery/setup is serialized; ready links
 remain active together. After that, either controller may turn off/on without
 resetting the board or pressing its buttons again. Meaningful left-stick motion
-selects the display owner. Idle jitter does not steal ownership. Losing the owner
-falls back to the remaining controller's most recent input; losing both clears it.
+selects the display owner in shared mode. Idle jitter does not steal ownership.
+Blue Xbox A toggles exclusive override, tied to address `5C:BA:37:DD:D9:6C`;
+Eli's gray/orange controller is `5C:BA:37:67:7F:DA`. Holding A does not repeat the
+toggle, and A already held on connection is ignored until released and pressed.
+Override off restores shared mode. In shared mode, losing the owner falls back to
+the remaining controller's most recent input; losing both clears it. In override,
+losing blue clears the matrix and keeps the mode latched until blue reconnects.
+Resetting the micro:bit starts shared mode again. This remains a motor-free diagnostic.
+
+The existing checks below passed before the override update. New physical check:
+with both connected, confirm shared handover; tap **blue Xbox A**, oppose Eli up
+with blue down, then centre blue while Eli moves; tap blue A again and move Eli's
+stick to confirm shared handover returns. Also check Eli's A cannot toggle override
+and blue off/on during override retains exclusive ownership. Hardware validation
+of the new toggle is pending; container tests cover both slot orders, held A,
+opposing input, shared handover and disconnect/reconnect with swapped slots.
 
 | Check | Physical action after readiness cue | Evidence | Status |
 | --- | --- | --- | --- |

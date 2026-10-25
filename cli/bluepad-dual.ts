@@ -10,6 +10,8 @@ export class DualPads {
   masksSeen: number[] = [];
   connectionsByAddress: Record<string, number> = {};
   soloSnapshotsByAddress: Record<string, number> = {};
+  priority: { latched: boolean; supervisorSlot: number } | null = null;
+  priorityChanges: { deviceMs: number; latched: boolean; supervisorSlot: number; owner: number }[] = [];
   private uptime = 0;
   push(line: string): string | undefined {
     const p = line.split(',');
@@ -17,8 +19,18 @@ export class DualPads {
       this.mask = 0; this.owner = -1; this.everBoth = false; this.pads = {}; this.uptime = 0;
       this.emptyAfterBoth = false; this.recoveredAfterEmpty = false;
       this.masksSeen = []; this.connectionsByAddress = {}; this.soloSnapshotsByAddress = {};
+      this.priority = null; this.priorityChanges = [];
     }
     if (p[0] === 'BP_STATUS' && /^\d+$/.test(p[2])) this.uptime = Number(p[2]);
+    if (p[0] === 'BP_PRIORITY' && p.length === 4 && /^\d+$/.test(p[1]) &&
+      ['0', '1'].includes(p[2]) && ['-1', '0', '1'].includes(p[3])) {
+      const next = { latched: p[2] === '1', supervisorSlot: Number(p[3]) };
+      if (!this.priority || this.priority.latched !== next.latched || this.priority.supervisorSlot !== next.supervisorSlot) {
+        this.priorityChanges.push({ deviceMs: Number(p[1]), ...next, owner: this.owner });
+        if (this.priorityChanges.length > 32) this.priorityChanges.shift();
+      }
+      this.priority = next;
+    }
     if (p[0] === 'BP_PEERS' && p.length === 4 && /^\d+$/.test(p[1]) &&
       ['0', '1', '2', '3'].includes(p[2]) && ['-1', '0', '1'].includes(p[3])) {
       const mask = Number(p[2]), owner = Number(p[3]);
@@ -55,6 +67,7 @@ export class DualPads {
       emptyAfterBoth: this.emptyAfterBoth, recoveredAfterEmpty: this.recoveredAfterEmpty,
       masksSeen: this.masksSeen, connectionsByAddress: this.connectionsByAddress,
       soloSnapshotsByAddress: this.soloSnapshotsByAddress,
+      priority: this.priority, priorityChanges: this.priorityChanges,
       bothDroveDisplayWhileConnected: this.everBoth && ['0', '1'].every(i => (this.pads[i]?.updatesWhileBothConnected ?? 0) > 0),
       limitation: 'Framebuffer writes prove the software selection path, not visible LED onset or radio latency.' };
   }

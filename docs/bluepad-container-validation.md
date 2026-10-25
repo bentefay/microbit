@@ -1,5 +1,29 @@
 # Bluepad container integration validation
 
+## Blue-controller A-button override
+
+Blue Xbox address `5C:BA:37:DD:D9:6C` is the only identity allowed to toggle
+override. Its fresh A press toggles shared/exclusive control. Shared mode retains
+the prior motion-anchor selection exactly; exclusive mode always selects blue,
+including at centre. Holding A does not repeatedly toggle; A held at connection
+requires release and a fresh press. Eli's address `5C:BA:37:67:7F:DA` cannot toggle.
+On blue disconnection during override, the display clears and mode stays latched.
+Blue reconnects into override, even in the opposite slot. Reset starts shared mode.
+
+Validation: 53 CLI tests passed (688 assertions), plus all five native C suites
+under Docker ASan/UBSan. Tests exercise both slot orders, both motion ownership
+directions, opposing child input, child A, held A, neutral and deflected toggles,
+disconnect/reconnect with swapped slots, both absent and shared-mode fallback.
+The native build passes artifact checks, with no motor adapter or motor calls:
+246256 bytes flash, 50872 bytes static RAM. HEX SHA-256:
+`af5452bc4040615635df5fb8be1d187c88ed5ace2f94b3d140a5c6a55ac1146b`.
+`BP_PRIORITY` records every toggle before snapshot throttling, plus heartbeat
+state. The CLI reports current mode, blue slot and recent transitions. Hardware
+validation of the toggle is pending; prior connection checks are recorded below.
+Flashed at 07:32:58 UTC with same-device remount and no `FAIL.TXT`. Live waiting
+heartbeats confirm matrix readiness and initial shared mode. Current capture:
+`.cache/observations/2026-10-25T07-33-03-338Z-bluepad-session-06f480b9.jsonl`.
+
 ## Two simultaneous controllers: implementation
 
 The native image now provisions two connections in Zephyr, BTstack and Bluepad32,

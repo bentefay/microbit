@@ -7,6 +7,8 @@
 #include "joystick_matrix.h"
 #include "display_owner.h"
 
+BUILD_ASSERT(BUTTON_A == 1u, "Override toggle must match Bluepad32's A button");
+
 static const struct gpio_dt_spec buttons[] = {
     GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios),
     GPIO_DT_SPEC_GET(DT_ALIAS(sw1), gpios),
@@ -28,6 +30,11 @@ static const char *state(void) {
 static void peers(void) {
     printk("BP_PEERS,%u,%u,%d\n", btstack_run_loop_get_time_ms(),
            display_peers(&display_state), display_state.owner);
+}
+static void priority(void) {
+    peers();
+    printk("BP_PRIORITY,%u,%u,%d\n", btstack_run_loop_get_time_ms(), display_state.override_latched,
+           display_supervisor_slot(&display_state));
 }
 static void draw_owner(void) {
     if (!matrix_ready) return;
@@ -54,7 +61,7 @@ static void tick(btstack_timer_source_t *source) {
         last_heartbeat = now;
         printk("BP_STATUS,1,%u,%s,%u,%u\n", now, state(), start_button, reports);
         printk("BP_DISPLAY,%u,%u,%u\n", now, matrix_ready, matrix_updates);
-        peers();
+        priority();
         for (int i = 0; i < 2; i++) if (display_state.pad[i].online) {
             uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(i);
             printk("BP_SLOT,%u,%d,%s,%u,%u\n", now, i, bd_addr_to_str(d->conn.btaddr), pad_reports[i], both_updates[i]);
@@ -108,7 +115,7 @@ static void disconnected(uni_hid_device_t *d) {
 static uni_error_t ready(uni_hid_device_t *d) {
     int slot = uni_hid_device_get_idx_for_instance(d);
     if (slot < 0 || slot >= 2) return UNI_ERROR_INVALID_DEVICE;
-    display_join(&display_state, slot);
+    display_join(&display_state, slot, d->conn.btaddr);
     pad_reports[slot] = 0; last_printed[slot] = 0; both_updates[slot] = 0;
     printk("BP_READY,%u,%d,%s\n", btstack_run_loop_get_time_ms(), slot, bd_addr_to_str(d->conn.btaddr));
     peers();
@@ -124,7 +131,9 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     pad_reports[slot]++;
     const uni_gamepad_t *g = &ctl->gamepad;
     // Display every received report BEFORE the serial snapshot rate limit.
-    if (display_input(&display_state, slot, g->axis_x, g->axis_y)) draw_owner();
+    bool was_override = display_state.override_latched;
+    if (display_input(&display_state, slot, g->axis_x, g->axis_y, g->buttons)) draw_owner();
+    if (was_override != display_state.override_latched) priority();
     uint32_t now = btstack_run_loop_get_time_ms();
     if (pad_reports[slot] > 1 && (uint32_t)(now - last_printed[slot]) < 200) return;
     last_printed[slot] = now;

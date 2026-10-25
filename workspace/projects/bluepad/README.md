@@ -14,7 +14,21 @@ select the owner: its displayed position remains unfiltered. Simultaneous delibe
 movement uses the last qualifying report. Returning the owner's stick to center
 keeps ownership. A/B start the diagnostic once per boot, not per connection.
 
-If the owner disconnects, the display falls back to the other controller's latest
+**Blue controller A toggles override.** The blue controller is identified by its
+Bluetooth address `5C:BA:37:DD:D9:6C`, independent of connection order or slot.
+Override starts off at boot. Press/release A on this Xbox controller to enable it;
+only blue input then controls the dot, including when blue returns to centre.
+Press A again to restore the shared motion-based ownership described above.
+The other controller's A cannot change this mode. Holding A toggles only once;
+A already held on connection is ignored until released and pressed again.
+There is no automatic takeover from blue stick movement while override is off.
+
+If blue disconnects during override, the matrix clears and the override remains
+latched, including if both controllers disconnect. Blue reconnects into the same
+mode when fresh input arrives. A micro:bit reset starts shared mode again.
+This arbitration is currently LED-only; it is not a motor fail-safe.
+
+In shared mode, if the owner disconnects, the display falls back to the other controller's latest
 input; if no input-capable controller remains it clears. Disconnecting the other
 controller leaves the owner's display alone. Either can reconnect automatically
 using its stored bond without another button press. Initial connection setup is
@@ -121,6 +135,9 @@ buttons, D-pad and miscellaneous buttons. `BP_PEERS` carries the connected bitma
 and display owner (-1 means none); `BP_SLOT` identifies each connected controller
 and reports how often it updated the display while both were connected.
 `BP_READY`/`BP_GONE` identify individual connection events. Use
+`BP_PRIORITY,time,enabled,blue_slot` to track override (slot -1 when blue is
+absent). It is emitted on every toggle and heartbeat, after `BP_PEERS`.
+Use
 `run bluepad dual-report CAPTURE.jsonl` to assess concurrent connections and
 ownership separately; legacy `report` and `timing` commands analyze the earlier
 single-controller `BP_INPUT` format. A status heartbeat proves loop

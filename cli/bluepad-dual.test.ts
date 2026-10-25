@@ -32,3 +32,16 @@ test('two identities and simultaneous display writes stay separate across slot r
   m.push('*** Booting Zephyr OS ***');
   expect(m.everBoth).toBe(false); expect(m.pads).toEqual({});
 });
+test('supervisor latch and handback are tracked separately from connection slots', () => {
+  const m = new DualPads();
+  m.push('BP_PEERS,1000,3,0'); m.push('BP_PRIORITY,1000,0,1');
+  m.push('BP_PEERS,2000,3,1'); m.push('BP_PRIORITY,2000,1,1');
+  m.push('BP_PRIORITY,3000,1,1'); // unchanged heartbeat is not another takeover
+  expect(m.priorityChanges.length).toBe(2);
+  m.push('BP_PEERS,4000,1,-1'); m.push('BP_PRIORITY,4000,1,-1');
+  expect(m.priority).toEqual({ latched: true, supervisorSlot: -1 });
+  m.push('BP_PEERS,5000,3,0'); m.push('BP_PRIORITY,5000,0,1');
+  expect(m.priorityChanges.at(-1)?.owner).toBe(0);
+  m.push('*** Booting Zephyr OS ***');
+  expect(m.priority).toBeNull(); expect(m.priorityChanges).toEqual([]);
+});

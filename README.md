@@ -50,6 +50,12 @@ restart. The latest diagnostic supports two concurrent controllers, with left-st
 movement selecting which controls the matrix. Both simultaneous control and
 independent off/on recovery have passed physical testing, including recovery after
 both controllers are switched off together.
+On the blue Xbox controller, **A toggles exclusive override**. Override off keeps
+the shared latest-movement behavior; override on accepts only blue input. The role
+follows blue's saved Bluetooth identity, not connection order. If blue disconnects
+during override, the matrix clears until it returns; a board reset starts shared
+mode. This update is flashed and passed automated tests; its physical toggle check
+is pending. It remains LED-only, with no motor control.
 A slower initial report cadence on the
 second improved after normal reconnection; its cause is still under investigation.
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
