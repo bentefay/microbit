@@ -1,5 +1,43 @@
 # Bluepad container integration validation
 
+## Xbox continuous drive and position steering
+
+The `--motor-drive` variant now uses the selected Xbox input for continuous M1
+speed (left Y, ±20%) and M2 position (right X, ±45° from captured encoder centre,
+15% servo speed). It is for the already-confirmed loose-shaft bench. Front A/B
+initializes stopped outputs and begins scanning; neutral input enables movement.
+Blue Xbox A exclusively selects blue input for both motors, by its stable identity.
+Shared mode accepts meaningful motion of either stick; it does not mix controllers'
+individual axes. Owner disconnect requires neutral before enabling again.
+
+Motor I2C runs in its own thread, checks the latest snapshot every 10 ms and sends
+only changed speed/target demands, drive first. Position commands retain 4 ms bus
+settling; no 500 ms motion wait or loop encoder polling is used. A+B and I2C faults
+latch stop until reset. Reports older than 500 ms stop output; stale non-neutral
+input also requires neutral before resuming. Quiet idle at neutral remains ready.
+
+Earlier captures show long gaps in unchanged Xbox notifications. The selected
+controller is therefore queried asynchronously with `hids_host_send_get_report`
+(report 1) after 150 ms of quiet. Pinned `hids_host.c` dispatches successful reads
+as normal HID reports, and `uni_bt_le.c` parses them through the controller callback.
+Requests and readiness never count as fresh data. `BP_POLL` records attempts;
+`BP_DRIVE` exposes requested outputs, input age, write count and maximum observed
+I2C write duration. Hardware support for these reads and continuous control is pending.
+These paths were inspected through the checked-in `run bluepad inspect` command;
+the header is `ble/gatt-service/hids_host.h` (not `hids_client.h`).
+
+Validation: 57 CLI tests / 714 assertions and seven C suites with ASan/UBSan pass.
+Coverage includes held continuous demand without repeated writes, steering wrap,
+centering, input timeout and neutral recovery, disconnect generations, terminal
+abort/fault, both controller-slot orders, opposing inputs under override, and
+right-stick-only shared ownership. Explicit flash selection protects default
+motor-free and finite-bench variants. Native build: 248708 B flash, 53352 B static
+RAM. HEX SHA-256:
+`efdb52f765e911b4c713f0e8def2b1a63cff858dd59dc8851d212ac2e8b5f35a`.
+Flashed at 07:59:58 UTC with same-device remount and no `FAIL.TXT`. The live
+monitor observed waiting firmware and `BP_DRIVE` waiting with zero motor writes.
+Capture: `.cache/observations/2026-10-25T08-00-02-265Z-bluepad-session-f4eb9555.jsonl`.
+
 ## Native finite loose-motor bench
 
 Ben requested motor testing, confirmed secured loose shafts with no wheels/linkage

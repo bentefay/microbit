@@ -7,6 +7,21 @@ loose-motor stage below uses connected, secured free shafts.
 
 ## Native loose-motor sequence
 
+The finite sequence below passed. The next build, `--motor-drive`, connects Xbox
+left Y to continuous M1 speed (20% cap) and right X to M2 position (±45° around
+its captured loose-shaft centre, 15% speed). Use the same confirmed free-shaft
+setup. Front micro:bit A/B starts; neutral control axes enable movement. Both
+sticks participate in shared ownership; blue Xbox A toggles exclusive ownership.
+Only changed demands generate motor writes. A+B latches a stop until reset.
+
+One combined physical check after live readiness: hold left up for three seconds,
+centre, hold down, centre; move right stick left/right and release to centre.
+Then enable blue override, oppose Eli up with blue down, centre blue, disable
+override and move Eli's stick. Confirm continuous rotation, steering returning
+to its starting position, and override. Use telemetry to check input freshness,
+speed/target ranges, command-write suppression and I2C results automatically.
+Physical continuous-control result pending; do not repeat the finite sequence.
+
 Ben authorized the motor test and confirmed both motors remain loose, secured,
 clear of hands/objects, with the Nezha power switch accessible. No steering linkage
 is attached, so this stage does not require or establish chassis steering limits.
@@ -19,13 +34,13 @@ between moves and ends permanently until reset. A+B aborts. Capture `BP_MOTOR`
 stages and ask for one combined physical confirmation of both movements/stopping.
 Xbox inputs still show on the matrix but do not drive these automatic motor steps.
 Passed: front A started the run; all four movement and stop commands succeeded,
-and Ben confirmed both motors moved in both directions. After this check, the next implementation is Xbox-driven
-motor control; the earlier MakeCode motor control is not linked into this native app.
+and Ben confirmed both motors moved in both directions. The earlier MakeCode
+motor control is not linked into this native app.
 Use continuous speed for M1 (not repeated finite moves) and a stick-mapped target
 position for M2 (not accumulating increments). Send only changed demands, with
 drive commands first; use the nonblocking protocol and retain the vendor's 4 ms
 position-command bus settling interval. The one-second bench pauses are not part
-of the future driving loop. Normal Xbox-driven motors remain to be implemented.
+of the driving loop. Native Xbox-driven control is implemented separately above.
 
 ## Two-controller extension
 

@@ -35,9 +35,18 @@ test('native build has read-only sources, isolated output and no device or netwo
 test('unknown native build flags and flashing are rejected before starting Docker', async () => {
   const command = async () => { throw new Error('must not execute'); };
   for (const args of [['flash'], ['build', '--flash'], ['test', '--nezha-compile-only'],
-    ['test', '--motor-bench'], ['build', '--motor-bench', '--nezha-compile-only']]) {
+    ['test', '--motor-bench'], ['test', '--motor-drive'], ['build', '--motor-bench', '--nezha-compile-only'],
+    ['build', '--motor-drive', '--motor-bench']]) {
     await expect(bluepad('/repo', args, command, validateHex)).rejects.toThrow('Use run bluepad');
   }
+});
+test('continuous drive flash requires its own explicit selection', () => {
+  const drive = { variant: 'motor-drive', motorDrive: true, motorBench: false, motorAdapterPresent: false };
+  validateBluepadFlashVariant(drive, false, true);
+  expect(() => validateBluepadFlashVariant(drive, false)).toThrow();
+  expect(() => validateBluepadFlashVariant(drive, true)).toThrow();
+  expect(() => validateBluepadFlashVariant(drive, true, true)).toThrow();
+  expect(() => validateBluepadFlashVariant({ ...drive, motorDrive: false }, false, true)).toThrow();
 });
 test('finite motor firmware must be explicitly selected and compile-only cannot flash', () => {
   const report = { variant: 'report-only', motorAdapterPresent: false, motorBench: false };

@@ -161,21 +161,22 @@ async function stopBluepadMonitor() {
       await command(['docker', 'stop', '--time', '2', c.Id]);
   }
 }
-export function validateBluepadFlashVariant(stamp: any, bench: boolean) {
-  if (stamp.variant !== (bench ? 'motor-bench' : 'report-only') || stamp.motorAdapterPresent !== false ||
-      (bench ? stamp.motorBench !== true : stamp.motorBench === true))
+export function validateBluepadFlashVariant(stamp: any, bench: boolean, drive = false) {
+  if ((bench && drive) || stamp.variant !== (drive ? 'motor-drive' : bench ? 'motor-bench' : 'report-only') || stamp.motorAdapterPresent !== false ||
+      (bench ? stamp.motorBench !== true : stamp.motorBench === true) ||
+      (drive ? stamp.motorDrive !== true : stamp.motorDrive === true))
     throw new Error('Bluepad artifact does not match the explicitly selected flash variant');
 }
-async function flash(project: string, confirmed: boolean, bench = false) {
+async function flash(project: string, confirmed: boolean, bench = false, drive = false) {
   if (!confirmed) throw new Error('Flashing starts the program. Use run flash PROJECT --confirm after arranging a controlled bench test.');
-  if (bench && project !== 'bluepad') throw new Error('--motor-bench is only for bluepad');
-  const path = join(workspace, 'projects', projectName(project), 'built', ...(project === 'bluepad' ? [bench ? 'motor-bench' : 'report-only'] : []));
+  if ((bench || drive) && project !== 'bluepad' || bench && drive) throw new Error('Select one motor variant, for bluepad only');
+  const path = join(workspace, 'projects', projectName(project), 'built', ...(project === 'bluepad' ? [drive ? 'motor-drive' : bench ? 'motor-bench' : 'report-only'] : []));
   const hex = await readFile(join(path, 'binary.hex'), 'utf8');
   validateHex(hex);
   const stamp = JSON.parse(await readFile(join(path, 'verified-build.json'), 'utf8'));
   if (project === 'bluepad') {
     validateBluepadHex(hex);
-    validateBluepadFlashVariant(stamp, bench);
+    validateBluepadFlashVariant(stamp, bench, drive);
   }
   const currentSource = project === 'bluepad' ? await bluepadInputHash(root) : await sourceHash(resolve(path, '..'));
   if (stamp.hex !== digest(hex) || stamp.source !== currentSource) throw new Error('Source or artifact changed since the verified build. Run build again.');
@@ -235,7 +236,7 @@ const help = `micro:bit workspace — run COMMAND
   image lock-system            Record installed Debian versions for drift checking
   image browser                Build the optional browser-test image
   image bluepad                Download pinned Zephyr/Bluepad sources and tools into Docker
-  build bluepad [--nezha-compile-only|--motor-bench]  Offline native build; never flashes
+  build bluepad [--nezha-compile-only|--motor-bench|--motor-drive]  Offline native build; never flashes
   bluepad test|versions|lock-system    Container packet tests / tool versions / Debian lock
   bluepad monitor              Continuous capture; wait for micro:bit A/B start signal
   bluepad monitor-stop         Stop only this repository's serial monitor container
@@ -259,6 +260,7 @@ const help = `micro:bit workspace — run COMMAND
   joystick-report FILE         Summarize normal-mode stick ranges and center samples
   flash PROJECT --confirm      Explicitly transfer existing HEX; never builds
   flash bluepad --motor-bench --confirm  Select finite loose-motor sequence explicitly
+  flash bluepad --motor-drive --confirm  Select continuous Xbox loose-motor control
   test                         Run TypeScript CLI tests
   env lock                     Resolve devenv lock through the normal devenv flow
   inspect PATH [TEXT]           Inspect a toolchain/workspace file inside Docker
@@ -368,8 +370,8 @@ export async function main(args: string[]) {
         break;
       }
       case 'flash':
-        if (rest.some(x => !['--confirm', '--motor-bench'].includes(x))) throw new Error('Unknown flash option');
-        await flash(projectName(arg), rest.includes('--confirm'), rest.includes('--motor-bench')); break;
+        if (rest.some(x => !['--confirm', '--motor-bench', '--motor-drive'].includes(x))) throw new Error('Unknown flash option');
+        await flash(projectName(arg), rest.includes('--confirm'), rest.includes('--motor-bench'), rest.includes('--motor-drive')); break;
       case 'new': {
         const name = projectName(arg);
         const dir = join(workspace, 'projects', name);

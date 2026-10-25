@@ -11,6 +11,8 @@ export class BluepadMonitor {
   lastStatusAt: number | null = null;
   lastInput: number[] | null = null;
   motor: { state: string; step: number; result: number; deviceMs: number } | null = null;
+  drive: { state: string; owner: number; speed: number; target: number; center: number;
+    writes: number; result: number; inputAgeMs: number; maxIoMs: number; deviceMs: number } | null = null;
   private uptime = 0;
   private sawStart = false;
   dual = new DualPads();
@@ -18,6 +20,20 @@ export class BluepadMonitor {
     const dualNotice = this.dual.push(line);
     if (dualNotice) return dualNotice;
     const p = line.split(',');
+    if (p[0] === 'BP_DRIVE' && p.length === 11 &&
+      ['waiting', 'input', 'neutral', 'active', 'stale', 'aborted', 'fault'].includes(p[2]) &&
+      [p[1], ...p.slice(3)].every(x => /^-?\d+$/.test(x)) && ['-1', '0', '1'].includes(p[3])) {
+      const changed = this.drive?.state !== p[2];
+      this.drive = { deviceMs: Number(p[1]), state: p[2], owner: Number(p[3]), speed: Number(p[4]),
+        target: Number(p[5]), center: Number(p[6]), writes: Number(p[7]), result: Number(p[8]),
+        inputAgeMs: Number(p[9]), maxIoMs: Number(p[10]) };
+      if (changed) return `XBOX MOTORS: ${p[2]}. ` + ({ waiting: 'Front micro:bit A/B starts; keep sticks centred.',
+        input: 'Waiting for controller input.', neutral: 'Centre both control sticks to enable.',
+        active: 'Left Y drives M1; right X positions M2. Blue Xbox A toggles override.',
+        stale: 'Input quiet; motors stopped. If it timed out during movement, centre the sticks to resume.',
+        aborted: 'A+B stop latched; reset to enable again.', fault: `Motor I2C error ${p[8]}; stop attempted; reset required.` }[p[2]]);
+      return;
+    }
     if (p[0] === 'BP_MOTOR' && p.length === 5 && /^\d+$/.test(p[1]) &&
       ['waiting', 'countdown', 'move', 'stop', 'done', 'fault', 'aborted'].includes(p[2]) &&
       /^[0-4]$/.test(p[3]) && /^-?\d+$/.test(p[4])) {
@@ -36,7 +52,7 @@ export class BluepadMonitor {
       if (uptime < this.uptime || p[3] === 'waiting') {
         this.lastInput = null;
         this.sawStart = false;
-        if (uptime < this.uptime) this.motor = null;
+        if (uptime < this.uptime) { this.motor = null; this.drive = null; }
       }
       this.uptime = uptime;
       this.lastStatusAt = hostMs;
@@ -100,7 +116,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

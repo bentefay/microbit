@@ -135,10 +135,11 @@ export async function bluepad(root: string, args: string[], command: Command, va
   }
   const adapter = flags.length === 1 && flags[0] === '--nezha-compile-only';
   const bench = flags.length === 1 && flags[0] === '--motor-bench';
-  if (!['build', 'test'].includes(action) || (flags.length && !(action === 'build' && (adapter || bench)))) {
-    throw new Error('Use run bluepad image|build [--nezha-compile-only|--motor-bench]|test|versions|lock-system|lock-base|lock-sdk');
+  const drive = flags.length === 1 && flags[0] === '--motor-drive';
+  if (!['build', 'test'].includes(action) || (flags.length && !(action === 'build' && (adapter || bench || drive)))) {
+    throw new Error('Use run bluepad image|build [--nezha-compile-only|--motor-bench|--motor-drive]|test|versions|lock-system|lock-base|lock-sdk');
   }
-  const variant = action === 'test' ? 'packet-tests' : bench ? 'motor-bench' : adapter ? 'nezha-compile-only' : 'report-only';
+  const variant = action === 'test' ? 'packet-tests' : drive ? 'motor-drive' : bench ? 'motor-bench' : adapter ? 'nezha-compile-only' : 'report-only';
   const output = join(root, 'workspace/projects/bluepad/built', variant);
   await mkdir(output, { recursive: true });
   const metadata = JSON.parse(await command(['docker', 'image', 'inspect', image], true))[0];
@@ -148,12 +149,12 @@ export async function bluepad(root: string, args: string[], command: Command, va
   const imageId = metadata.Id;
   const run = (argv: string[], capture = false) => command(['docker', 'run', ...bluepadArgs(root, output), imageId, ...argv], capture);
   if (action === 'test') {
-    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'controller_roles', 'display_owner', 'motor_bench']) {
+    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'controller_roles', 'display_owner', 'motor_bench', 'motor_control']) {
     await run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-g',
       '-I/app/app', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
     await run([`/build/test-${name}`]);
     }
-    console.log('Bluepad packet, start-button, joystick-frame, controller-role, display-owner and finite-motor tests passed inside the offline container (ASan/UBSan).');
+    console.log('Bluepad packet, start-button, joystick-frame, controller-role, ownership, finite-motor and continuous-control tests passed inside the offline container (ASan/UBSan).');
     return;
   }
   // Never leave a prior success receipt after a failed rebuild.
@@ -167,8 +168,9 @@ export async function bluepad(root: string, args: string[], command: Command, va
     '-DZEPHYR_MODULES=/opt/bluepad/modules/CMSIS_6;/opt/bluepad/modules/cmsis;/opt/bluepad/modules/hal_nordic',
     '-DPython3_EXECUTABLE=/usr/bin/python3', '-DBUILD_VERSION=bluepad-microbit-experiment',
     `-DENABLE_NEZHA_ADAPTER=${adapter ? 'ON' : 'OFF'}`,
-    `-DENABLE_MOTOR_BENCH=${bench ? 'ON' : 'OFF'}`];
-  if (adapter || bench) configure.push('-DDTC_OVERLAY_FILE=/app/app/nezha.overlay', '-DEXTRA_CONF_FILE=/app/app/nezha.conf');
+    `-DENABLE_MOTOR_BENCH=${bench ? 'ON' : 'OFF'}`,
+    `-DENABLE_MOTOR_DRIVE=${drive ? 'ON' : 'OFF'}`];
+  if (adapter || bench || drive) configure.push('-DDTC_OVERLAY_FILE=/app/app/nezha.overlay', '-DEXTRA_CONF_FILE=/app/app/nezha.conf');
   await run(configure);
   await run(['cmake', '--build', '/build/cmake', '-j4']);
   const elf = '/build/cmake/zephyr/zephyr.elf';
@@ -177,6 +179,7 @@ export async function bluepad(root: string, args: string[], command: Command, va
   if (unresolved) throw new Error(`Unresolved native symbols: ${unresolved}`);
   if (/\bnezha_write_motor\b/.test(symbols) !== adapter) throw new Error('Unexpected motor adapter linkage');
   if (/\bmotor_bench_start\b/.test(symbols) !== bench) throw new Error('Unexpected finite motor bench linkage');
+  if (/\bmotor_drive_start\b/.test(symbols) !== drive) throw new Error('Unexpected continuous motor drive linkage');
   for (const required of ['uni_hid_parser_xboxone_setup', 'bt_enable_raw', 'hids_host_connect', 'btstack_main']) {
     if (!symbols.includes(` ${required}\n`)) throw new Error(`Missing Bluetooth implementation: ${required}`);
   }
@@ -192,7 +195,7 @@ export async function bluepad(root: string, args: string[], command: Command, va
   await writeFile(join(output, 'binary.hex'), hex);
   await writeFile(join(output, 'verified-build.json'), JSON.stringify({
     source, image: imageId, variant, hex: createHash('sha256').update(hex).digest('hex'),
-    unresolvedSymbols: false, motorAdapterPresent: adapter, motorAdapterDirectCalls: 0, motorBench: bench,
+    unresolvedSymbols: false, motorAdapterPresent: adapter, motorAdapterDirectCalls: 0, motorBench: bench, motorDrive: drive,
     hardwareTested: false, flashed: false,
   }, null, 2) + '\n');
   console.log(`${sizes}\nVerified ${variant} build: ${output}/binary.hex\nNo hardware was accessed or flashed.`);

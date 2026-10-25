@@ -9,6 +9,13 @@
 #ifdef ENABLE_MOTOR_BENCH
 #include "motor_bench.h"
 #endif
+#ifdef ENABLE_MOTOR_DRIVE
+#include "motor_drive.h"
+#include <zephyr/kernel.h>
+#include <ble/gatt-service/hids_host.h>
+static uint32_t received[2], motor_epoch, polled[2], polls[2];
+static uint8_t poll_status[2];
+#endif
 
 BUILD_ASSERT(BUTTON_A == 1u, "Override toggle must match Bluepad32's A button");
 
@@ -24,6 +31,18 @@ static display_owner_t display_state = {.owner = -1};
 static unsigned start_button;
 static bool matrix_ready;
 static uint32_t matrix_updates;
+#ifdef ENABLE_MOTOR_DRIVE
+static void publish_motor_input(void) {
+    int owner = display_state.owner;
+    drive_input_t input = {.owner = owner, .epoch = motor_epoch};
+    if (owner >= 0) {
+        const display_pad_t *p = &display_state.pad[owner];
+        input.present = p->online && p->seen;
+        input.ly = p->y; input.rx = p->rx; input.received = received[owner];
+    }
+    motor_drive_input(input);
+}
+#endif
 static const char *state(void) {
     if (!buttons_ready) return "button-error";
     if (!bluetooth_ready) return "initializing";
@@ -55,6 +74,20 @@ static void tick(btstack_timer_source_t *source) {
     if (buttons_ready && gate.started && gpio_pin_get_dt(&buttons[0]) > 0 &&
         gpio_pin_get_dt(&buttons[1]) > 0) motor_bench_abort();
 #endif
+#ifdef ENABLE_MOTOR_DRIVE
+    if (buttons_ready && gate.started && gpio_pin_get_dt(&buttons[0]) > 0 &&
+        gpio_pin_get_dt(&buttons[1]) > 0) motor_drive_abort();
+    int owner = display_state.owner;
+    uint32_t current = k_uptime_get_32();
+    if (gate.started && owner >= 0 && (uint32_t)(current - received[owner]) >= 150 &&
+        (uint32_t)(current - polled[owner]) >= 150) {
+        uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(owner);
+        polled[owner] = current; polls[owner]++;
+        // Xbox BLE gamepad input is report 1. BTstack delivers successful reads
+        // through the usual HID callback; only that response updates freshness.
+        poll_status[owner] = hids_host_send_get_report(d->hids_cid, 1, HID_REPORT_TYPE_INPUT);
+    }
+#endif
     if (buttons_ready && bluetooth_ready && !gate.started) {
         int a = gpio_pin_get_dt(&buttons[0]);
         int b = gpio_pin_get_dt(&buttons[1]);
@@ -65,6 +98,10 @@ static void tick(btstack_timer_source_t *source) {
 #ifdef ENABLE_MOTOR_BENCH
             if (start_button == 3) motor_bench_abort();
             motor_bench_start();
+#endif
+#ifdef ENABLE_MOTOR_DRIVE
+            if (start_button == 3) motor_drive_abort();
+            motor_drive_start();
 #endif
         }
     }
@@ -79,6 +116,9 @@ static void tick(btstack_timer_source_t *source) {
         for (int i = 0; i < 2; i++) if (display_state.pad[i].online) {
             uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(i);
             printk("BP_SLOT,%u,%d,%s,%u,%u\n", now, i, bd_addr_to_str(d->conn.btaddr), pad_reports[i], both_updates[i]);
+#ifdef ENABLE_MOTOR_DRIVE
+            printk("BP_POLL,%u,%d,%u,%u\n", now, i, polls[i], poll_status[i]);
+#endif
         }
     }
     btstack_run_loop_set_timer(source, 20);
@@ -122,6 +162,11 @@ static void disconnected(uni_hid_device_t *d) {
     if (slot < 0 || slot >= 2) return;
     int old_owner = display_state.owner;
     display_leave(&display_state, slot);
+#ifdef ENABLE_MOTOR_DRIVE
+    if (old_owner == slot) motor_epoch++;
+    received[slot] = 0;
+    publish_motor_input();
+#endif
     if (old_owner != display_state.owner) draw_owner();
     printk("BP_GONE,%u,%d\n", btstack_run_loop_get_time_ms(), slot);
     peers();
@@ -130,6 +175,11 @@ static uni_error_t ready(uni_hid_device_t *d) {
     int slot = uni_hid_device_get_idx_for_instance(d);
     if (slot < 0 || slot >= 2) return UNI_ERROR_INVALID_DEVICE;
     display_join(&display_state, slot, d->conn.btaddr);
+#ifdef ENABLE_MOTOR_DRIVE
+    received[slot] = 0;
+    polled[slot] = 0; polls[slot] = 0; poll_status[slot] = 0;
+    publish_motor_input();
+#endif
     pad_reports[slot] = 0; last_printed[slot] = 0; both_updates[slot] = 0;
     printk("BP_READY,%u,%d,%s\n", btstack_run_loop_get_time_ms(), slot, bd_addr_to_str(d->conn.btaddr));
     peers();
@@ -146,7 +196,14 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     const uni_gamepad_t *g = &ctl->gamepad;
     // Display every received report BEFORE the serial snapshot rate limit.
     bool was_override = display_state.override_latched;
+#ifdef ENABLE_MOTOR_DRIVE
+    received[slot] = k_uptime_get_32();
+    if (display_input_axes(&display_state, slot, g->axis_x, g->axis_y,
+                           g->axis_rx, g->axis_ry, g->buttons)) draw_owner();
+    publish_motor_input();
+#else
     if (display_input(&display_state, slot, g->axis_x, g->axis_y, g->buttons)) draw_owner();
+#endif
     if (was_override != display_state.override_latched) priority();
     uint32_t now = btstack_run_loop_get_time_ms();
     if (pad_reports[slot] > 1 && (uint32_t)(now - last_printed[slot]) < 200) return;
