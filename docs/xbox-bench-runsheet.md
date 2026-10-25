@@ -7,10 +7,10 @@ loose-motor stage below uses connected, secured free shafts.
 
 ## Native loose-motor sequence
 
-The finite sequence below passed. The next build, `--motor-drive`, connects Xbox
-either stick's Y to continuous M1 speed (20% cap) and its X to M2 position (±45° around
+The finite sequence below passed. The current build, `--motor-drive`, defaults to Xbox
+left Y for continuous M1 speed (20% cap) and right X for M2 position (±45° around
 its captured loose-shaft centre, 15% speed). Use the same confirmed free-shaft
-setup. Front micro:bit A/B starts; neutral control axes enable movement. Both
+setup. Bluetooth starts automatically at boot; neutral control axes enable movement. Both
 sticks participate in shared ownership; blue Xbox A toggles exclusive ownership.
 Only changed demands generate motor writes. A+B latches a stop until reset.
 
@@ -29,11 +29,14 @@ perfect." The liveness probes receive actual replies without replacing controls;
 held demands stay continuous and unchanged demands produce no extra motor writes.
 Do not repeat the finite sequence or the full stick exercise.
 
-New B toggle: each Xbox B switches only that controller between either-stick and
-split controls (left Y drive/right X steering), defaulting to either-stick on each
-connection. Both modes retain blue A override. After flashing, one front micro:bit
-press starts normally; the only new physical check is Xbox B into split mode and
-B back into either-stick mode. That mode-toggle check is pending.
+Each Xbox B switches only that controller between split controls (left Y drive/right
+X steering) and either-stick controls, defaulting to split on each connection.
+Both modes retain blue A override. The B-toggle capture recorded Eli switching
+split/either/split; no repeat of the motor exercise is needed. For automatic startup,
+check telemetry for a zero start-button mask, controller connection and split mode.
+Controllers already powered on may reconnect without any new human action.
+Passed after the 08:18 UTC flash: both controllers connected with start mask zero,
+both reported split mode, and blue input drove active commands with I2C result zero.
 
 Ben authorized the motor test and confirmed both motors remain loose, secured,
 clear of hands/objects, with the Nezha power switch accessible. No steering linkage
@@ -57,8 +60,8 @@ of the driving loop. Native Xbox-driven control is implemented separately above.
 
 ## Two-controller extension
 
-The current firmware supports two active links. A front-button press is required
-only once per micro:bit boot. Initial discovery/setup is serialized; ready links
+The current firmware supports two active links and starts Bluetooth automatically
+at boot. Initial discovery/setup is serialized; ready links
 remain active together. After that, either controller may turn off/on without
 resetting the board or pressing its buttons again. Meaningful left-stick motion
 selects the display owner in shared mode. Idle jitter does not steal ownership.

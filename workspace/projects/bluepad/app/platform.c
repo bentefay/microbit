@@ -126,17 +126,26 @@ static void tick(btstack_timer_source_t *source) {
         int a = gpio_pin_get_dt(&buttons[0]);
         int b = gpio_pin_get_dt(&buttons[1]);
         if (a < 0 || b < 0) buttons_ready = false;
-        else if ((start_button = start_gate_update(&gate, now, (a ? 1 : 0) | (b ? 2 : 0)))) {
-            printk("BP_START,%u,%u\n", now, start_button);
-            uni_bt_start_scanning_and_autoconnect_unsafe();
+        else {
 #ifdef ENABLE_MOTOR_BENCH
-            if (start_button == 3) motor_bench_abort();
-            motor_bench_start();
+            start_button = start_gate_update(&gate, now, (a ? 1 : 0) | (b ? 2 : 0));
+#else
+            // Start on the run-loop tick after Bluetooth setup has returned.
+            // Mask zero distinguishes automatic startup from a physical press.
+            gate.started = true;
+#endif
+            if (gate.started) {
+                printk("BP_START,%u,%u\n", now, start_button);
+                uni_bt_start_scanning_and_autoconnect_unsafe();
+#ifdef ENABLE_MOTOR_BENCH
+                if (start_button == 3) motor_bench_abort();
+                motor_bench_start();
 #endif
 #ifdef ENABLE_MOTOR_DRIVE
-            if (start_button == 3) motor_drive_abort();
-            motor_drive_start();
+                if (a && b) motor_drive_abort();
+                motor_drive_start();
 #endif
+            }
         }
     }
     if ((uint32_t)(now - last_heartbeat) >= 1000) {
@@ -177,9 +186,12 @@ static void platform_init(int argc, const char **argv) {
 }
 static void platform_ready(void) {
     bluetooth_ready = true;
-    // Reset debounce here so a button held during Bluetooth startup is ignored.
+    // The finite bench retains its release/press gate. Other variants auto-start
+    // on the next tick; setup must finish before starting discovery.
     gate = (start_gate_t){.changed = btstack_run_loop_get_time_ms()};
+#ifdef ENABLE_MOTOR_BENCH
     printk("BP_WAIT,1\n");
+#endif
 }
 static void connected(uni_hid_device_t *d) { logi("Connected: %p\n", d); }
 static uni_error_t discovered(bd_addr_t addr, const char *name, uint16_t cod, uint8_t rssi) {
@@ -212,12 +224,14 @@ static void disconnected(uni_hid_device_t *d) {
 static uni_error_t ready(uni_hid_device_t *d) {
     int slot = uni_hid_device_get_idx_for_instance(d);
     if (slot < 0 || slot >= 2) return UNI_ERROR_INVALID_DEVICE;
-    display_join(&display_state, slot, d->conn.btaddr);
 #ifdef ENABLE_MOTOR_DRIVE
+    display_join_mode(&display_state, slot, d->conn.btaddr, true);
     received[slot] = 0;
     polled[slot] = 0; polls[slot] = 0; poll_status[slot] = 0;
     probe_handle[slot] = 0; probe_pending[slot] = false; probe_responses[slot] = 0;
     publish_motor_input();
+#else
+    display_join(&display_state, slot, d->conn.btaddr);
 #endif
     pad_reports[slot] = 0; last_printed[slot] = 0; both_updates[slot] = 0;
     printk("BP_READY,%u,%d,%s\n", btstack_run_loop_get_time_ms(), slot, bd_addr_to_str(d->conn.btaddr));

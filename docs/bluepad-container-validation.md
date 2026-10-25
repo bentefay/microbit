@@ -2,13 +2,13 @@
 
 ## Xbox continuous drive and position steering
 
-The `--motor-drive` variant now uses either stick on the selected Xbox for continuous M1
-speed (Y, ±20%) and M2 position (X, ±45° from captured encoder centre,
-15% servo speed). It is for the already-confirmed loose-shaft bench. Front A/B
-initializes stopped outputs and begins scanning; neutral input enables movement.
+The `--motor-drive` variant defaults to split controls on the selected Xbox for continuous M1
+speed (left Y, ±20%) and M2 position (right X, ±45° from captured encoder centre,
+15% servo speed). It is for the already-confirmed loose-shaft bench. Bluetooth
+automatically initializes stopped outputs and begins scanning; neutral input enables movement.
 Blue Xbox A exclusively selects blue input for both motors, by its stable identity.
-Shared mode accepts meaningful motion of either stick; it does not mix sticks'
-or controllers' individual axes. The last meaningfully moved stick supplies both
+Shared mode accepts meaningful control-axis motion from either controller; it does
+not mix controllers' axes. In optional either-stick mode, the last moved stick supplies both
 axes and the LED dot. A same-report tie keeps the current stick; centring it does
 not hand control to a stationary deflected stick. Both sticks must be centred
 before initial/recovery arming. Owner disconnect requires neutral before enabling again.
@@ -65,21 +65,44 @@ and zero motor writes observed. Corrected capture:
 
 ### Per-controller B mode toggle
 
-Xbox B now toggles that controller's mapping: either-stick by default, or split
+Xbox B toggles that controller's mapping: initially either-stick by default, or split
 left-Y drive/right-X steering. Held B toggles once; B held on connection is ignored.
 The unused split axes cannot steal shared ownership. The LED shows the combined
 drive/steering axes. Changing Eli's mapping cannot affect blue's mapping or blue A
-override. Each connection defaults to either-stick. `BP_MODE` records transitions
+override. That build defaulted to either-stick. `BP_MODE` records transitions
 and heartbeat state; the CLI announces and tracks each pad's mode independently.
 57 CLI tests / 721 assertions and seven C suites pass, including both connection
 orders, independent mappings, held B, split-axis combination, unused-axis rejection,
-A/B independence under override, and reconnect defaults. Physical B-toggle check
-pending; previous continuous-control checks do not need repeating.
+A/B independence under override, and reconnect defaults. Hardware telemetry captured
+Eli switching split/either/split; previous continuous-control checks do not need repeating.
 The mode-toggle build uses 249468 B flash / 53384 B static RAM. HEX SHA-256:
 `a06a0c74ac6c77cb5875d76510746355bcee12b6e0ad9819618dc016755230d1`.
 Flashed at 08:11:11 UTC, same-device remount with no `FAIL.TXT`; live waiting
 state and zero motor writes confirmed. Capture:
 `.cache/observations/2026-10-25T08-11-23-229Z-bluepad-session-01acb672.jsonl`.
+
+### Split default and automatic startup
+
+Motor-drive now defaults each connection to split controls. Report-only and
+motor-drive start scanning on the first run-loop tick after Bluetooth setup returns,
+with `BP_START` / `BP_STATUS` button mask zero. Motor initialization starts stopped;
+actual centred input is still required. Holding micro:bit A+B at startup latches
+abort before the motor worker starts. The finite bench retains its physical gate.
+The monitor identifies automatic startup without inventing an A+B press. Tests
+cover automatic start/recovery/reboot, split defaults in both slots, boot-held B,
+the first fresh B selecting either-stick mode and split defaults on reconnect.
+
+Validation: 58 CLI tests / 727 assertions and all seven native ASan/UBSan suites
+passed. Motor-drive and report-only container builds passed. Motor-drive uses
+249392 B flash / 53384 B static RAM. HEX SHA-256:
+`56916a7530cce7c0113ad427ed49da7c8443df31b6be642d2511d83ce396d605`.
+Flashed at 08:18:04 UTC on 2026-10-25 with same-device remount and no `FAIL.TXT`.
+The first monitored heartbeat showed both controllers connected, button mask zero
+and both modes split. Blue input and active motor commands followed, with I2C
+result zero. At device 10971 ms, drive was +20 and steering target 35° around
+centre 0°; this is command telemetry, not a new visual motion confirmation.
+Capture: `.cache/observations/2026-10-25T08-18-06-484Z-bluepad-session-2ae585e0.jsonl`.
+No extra physical sequence was requested.
 
 ## Native finite loose-motor bench
 

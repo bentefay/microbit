@@ -27,7 +27,7 @@ export class BluepadMonitor {
       this.drive = { deviceMs: Number(p[1]), state: p[2], owner: Number(p[3]), speed: Number(p[4]),
         target: Number(p[5]), center: Number(p[6]), writes: Number(p[7]), result: Number(p[8]),
         livenessAgeMs: Number(p[9]), maxIoMs: Number(p[10]) };
-      if (changed) return `XBOX MOTORS: ${p[2]}. ` + ({ waiting: 'Front micro:bit A/B starts; keep sticks centred.',
+      if (changed) return `XBOX MOTORS: ${p[2]}. ` + ({ waiting: 'Bluetooth initializing; keep sticks centred for automatic startup.',
         input: 'Waiting for controller input.', neutral: 'Centre both control sticks to enable.',
         active: 'Xbox motor control active. B toggles either-stick/split controls; blue A toggles override.',
         stale: 'Input quiet; motors stopped. If it timed out during movement, centre the sticks to resume.',
@@ -67,6 +67,7 @@ export class BluepadMonitor {
             ? 'CONTROLLER DISCONNECTED: turn the controller on normally when ready; watching for recovery.'
             : 'SCANNING: the start was already acknowledged; still watching for a controller.';
           this.sawStart = true;
+          if (this.button === 0) return 'AUTO-CONNECT: watching for controllers; no micro:bit button press needed.';
           return `START RECEIVED (${this.button === 1 ? 'A' : this.button === 2 ? 'B' : 'A+B'}): watching for a controller connection.`;
         }
         if (this.state === 'connected') {
@@ -76,7 +77,7 @@ export class BluepadMonitor {
         return `Firmware state: ${this.state}`;
       }
     } else if (p[0] === 'BP_INPUT' && p.length === 12 && p.slice(1).every(x => /^-?\d+$/.test(x)) &&
-      this.button > 0 && this.lastStatusAt !== null && hostMs - this.lastStatusAt < 5000) {
+      this.sawStart && this.lastStatusAt !== null && hostMs - this.lastStatusAt < 5000) {
       const first = this.lastInput === null;
       this.lastInput = p.slice(3).map(Number);
       this.reports = Number(p[2]);

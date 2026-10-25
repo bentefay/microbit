@@ -4,12 +4,25 @@ import { BluepadMonitor } from './bluepad-monitor';
 test('continuous motor status tracks commands, stale stop and firmware restart', () => {
   const m = new BluepadMonitor();
   m.push('BP_STATUS,1,10000,waiting,0,0', 0);
-  expect(m.push('BP_DRIVE,10000,waiting,-1,0,-1,-1,0,0,0,0', 1)).toContain('Front micro:bit');
+  expect(m.push('BP_DRIVE,10000,waiting,-1,0,-1,-1,0,0,0,0', 1)).toContain('automatic startup');
   expect(m.push('BP_DRIVE,11000,active,1,20,35,350,10,0,10,2', 2)).toContain('B toggles');
   expect(m.drive).toMatchObject({ speed: 20, target: 35, center: 350, writes: 10, livenessAgeMs: 10, maxIoMs: 2 });
   expect(m.push('BP_DRIVE,12000,stale,1,0,-1,350,12,0,501,2', 3)).toContain('motors stopped');
   m.push('BP_STATUS,1,1000,waiting,0,0', 4);
   expect(m.drive).toBeNull();
+});
+
+test('automatic startup accepts input and recovers without inventing a button press', () => {
+  const m = new BluepadMonitor();
+  expect(m.push('BP_STATUS,1,1000,scanning,0,0', 0)).toContain('AUTO-CONNECT');
+  m.push('BP_STATUS,1,2000,connected,0,1', 1000);
+  expect(m.push('BP_INPUT,2100,2,0,0,0,0,0,0,0,0,0', 1100)).toContain('INPUT RECEIVED');
+  expect(m.push('BP_STATUS,1,3000,scanning,0,2', 2000)).toContain('DISCONNECTED');
+  expect(m.lastInput).toBeNull();
+  m.push('BP_STATUS,1,4000,connected,0,2', 3000);
+  m.push('BP_STATUS,1,500,initializing,0,0', 4000);
+  expect(m.lastInput).toBeNull();
+  expect(m.push('BP_STATUS,1,1000,scanning,0,0', 4500)).toContain('AUTO-CONNECT');
 });
 
 test('finite motor state survives missed events, exposes failure and resets on reboot', () => {

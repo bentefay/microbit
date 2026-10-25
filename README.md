@@ -32,23 +32,23 @@ Never find steering limits by driving into a mechanical stop.
 
 ## Controls and firmware status
 
-The Xbox mapping is the same on **both sticks: up/down = proportional drive,
-left/right = steering position**. The most recently moved stick controls both
-axes; the LED dot follows it. Centring it stops drive and returns steering to its
-centre. Blue Xbox A toggles exclusive control over Eli's controller.
-Xbox **B toggles that controller to split controls** (left stick speed, right
-stick steering), then back to either-stick mode. Each connection starts in
-either-stick mode; the other controller's choice is independent.
+The default Xbox mapping is **split: left stick up/down = proportional drive,
+right stick left/right = steering position**. Xbox **B toggles to either-stick
+mode**, where the most recently moved stick controls both axes, and back to split.
+Each connection starts in split mode; the other controller's choice is independent.
+The LED dot shows the selected drive/steering axes. Centring stops drive and returns
+steering to centre. Blue Xbox A toggles exclusive control over Eli's controller.
 
 **Currently flashed (2026-10-25): experimental Bluepad32 Xbox loose-motor control.**
-Either front micro:bit button starts scanning and initializes stopped outputs.
+Bluetooth automatically scans at boot and initializes stopped outputs; no front
+micro:bit button press is needed.
 Centred sticks enable continuous M1 drive from Y (20% cap) and M2 position
 from X (±45° around its captured loose-shaft centre, at 15% servo speed).
 Blue Xbox A toggles exclusive control. A+B on the micro:bit latches a stop.
 This is the explicit `--motor-drive` variant; default report-only remains motor-free.
 Both loose motors already passed finite movement in both directions on the native
 bench. Ben confirmed the corrected continuous drive, steering and either-stick
-controls work perfectly; the newly added B mode toggle awaits its physical check.
+controls work perfectly. Hardware telemetry captured B switching split/either/split.
 Container builds, DAPLink transfer and live firmware readiness heartbeat passed.
 A physical A-button start, Xbox pairing, control coverage and sampled neutral return
 have passed. Controller power-cycle recovery and saved-pairing recovery after a
@@ -77,7 +77,7 @@ The PS2 input-lag cause is unresolved; no timing workaround has been declared a 
 
 The normal program is **`car.startDriving()`**, in `drive.ts`.
 This older MakeCode program retains the previous split-stick mapping; the current
-native Xbox firmware uses either stick for both axes as described above.
+native Xbox firmware also defaults to split and offers either-stick mode with B.
 `run car-mode drive` selects it; `run car-mode receiver-lab` selects the investigation.
 Selection changes `main.ts` and its block only; build and flash remain separate commands.
 Settings are in `settings.ts`; diagnostic programs remain separately selectable.

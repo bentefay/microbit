@@ -39,9 +39,13 @@ static inline void display_select(display_owner_t *s) {
         break;
     }
 }
-static inline void display_join(display_owner_t *s, unsigned slot, const uint8_t address[6]) {
-    if (slot < 2) s->pad[slot] = (display_pad_t){.online = true, .supervisor = controller_is_supervisor(address)};
+static inline void display_join_mode(display_owner_t *s, unsigned slot, const uint8_t address[6], bool split) {
+    if (slot < 2) s->pad[slot] = (display_pad_t){.online = true, .split = split,
+        .supervisor = controller_is_supervisor(address)};
     display_select(s);
+}
+static inline void display_join(display_owner_t *s, unsigned slot, const uint8_t address[6]) {
+    display_join_mode(s, slot, address, false); // LED-only variants use left stick.
 }
 static inline void display_leave(display_owner_t *s, unsigned slot) {
     if (slot >= 2) return;

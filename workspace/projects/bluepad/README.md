@@ -57,14 +57,15 @@ experimental; compilation does not establish pairing or reliable input.
 
 `run build bluepad --motor-drive` and `run flash bluepad --motor-drive --confirm`
 select the separate continuous-control artifact. This is for the confirmed loose
-M1/M2 shafts, not a chassis or steering linkage. Front micro:bit A or B begins
-scanning and initializes stopped motors; no bus commands run before that press.
+M1/M2 shafts, not a chassis or steering linkage. Bluetooth starts scanning
+automatically at boot and initializes stopped motors; no front-button press is needed.
 M2's current encoder position becomes the bench centre. Both sticks centred enables
-control. Either stick has the same mapping: Y controls continuous signed M1 speed,
-capped at 20%; X controls position within ±45° of centre, at 15% servo speed.
-Returning the controlling stick stops M1 and returns M2 to centre. These are free-shaft limits.
+control. Split mode is the default: left Y controls continuous signed M1 speed,
+capped at 20%; right X controls position within ±45° of centre, at 15% servo speed.
+Xbox B selects either-stick mode, where either stick supplies both axes.
+Returning the control axes stops M1 and returns M2 to centre. These are free-shaft limits.
 
-Either stick's meaningful movement selects the shared owner and controlling stick.
+In either-stick mode, meaningful movement selects the shared owner and controlling stick.
 The LED dot follows that stick. A same-report tie retains the previously selected
 stick; a stationary deflected stick cannot steal control when the other centres.
 `BP_STICK,time,slot,stick` identifies the current choice (0 left, 1 right).
@@ -74,7 +75,7 @@ LED dot shows the combined drive/steering axes in split mode. B does not change
 the other controller's mapping or blue A override. Holding B toggles once; B held
 at connection is ignored until released and pressed. Mode changes apply on that
 report, so centre before switching if you want the outputs to stay still.
-Each connection starts in either-stick mode. `BP_MODE,time,slot,split` (0/1)
+Each connection starts in split mode. `BP_MODE,time,slot,split` (0/1)
 records toggles and heartbeat state; the monitor announces each mode change.
 Blue Xbox A toggles exclusive control of both motors and the LED dot. Identity,
 held-A handling and override persistence match the LED diagnostic. Lost blue in
@@ -205,16 +206,15 @@ run serial 30 xbox-pairing
 run bluepad monitor
 ```
 
-The continuous monitor has no human-response timeout. Once a live `waiting`
-heartbeat is observed, turn on the controllers and press/release either front
-micro:bit button (A or B). Use Pair only when a new pairing is needed.
-The firmware requires a stable release
-before accepting a press, debounces for 40 ms, and begins scanning only once per
-boot. A button held during startup does not count. Reset the board for a new run.
-Button readiness starts a motionless diagnostic; it never authorizes motors.
+The continuous monitor has no human-response timeout. Report-only and motor-drive
+firmware scan and reconnect automatically after Bluetooth initialization. Turn on
+the controllers normally; use Pair only when a new pairing is needed. Motor-drive
+waits for centred sticks before movement. Micro:bit A+B still latches a stop,
+including when held at startup. The finite motor-bench variant alone retains its
+40 ms stable release/press gate before running its automatic motor sequence.
 
 Firmware emits `BP_STATUS` every second with protocol version, device uptime,
-state, latched start-button mask (A=1, B=2) and total input-report count. The latch
+state, start-button mask (0=automatic, A=1, B=2) and total input-report count. The latch
 survives delayed opening of serial, but resets on reboot. `BP_PAD` snapshots
 contain device time, slot (0/1), per-controller report count, four axes, two triggers,
 buttons, D-pad and miscellaneous buttons. `BP_PEERS` carries the connected bitmask

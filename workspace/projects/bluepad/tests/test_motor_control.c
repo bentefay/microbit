@@ -43,6 +43,19 @@ static void check_modes(unsigned parent) {
 }
 int main(void) {
     check_modes(0); check_modes(1);
+    for (unsigned slot=0;slot<2;slot++) {
+        display_owner_t s={.owner=-1};
+        display_join_mode(&s,slot,blue,true);
+        display_input_axes(&s,slot,511,-512,-512,511,2); // boot-held B ignored
+        assert(s.pad[slot].split);
+        assert(display_x(&s.pad[slot])==-512 && display_y(&s.pad[slot])==-512);
+        display_input_axes(&s,slot,0,0,0,0,0);
+        display_input_axes(&s,slot,0,0,0,0,2);
+        assert(!s.pad[slot].split); // first fresh B selects either-stick
+        display_leave(&s,slot);
+        display_join_mode(&s,slot,blue,true);
+        assert(s.pad[slot].split && !s.pad[slot].seen); // reconnect defaults to split
+    }
     assert(drive_axis(-512,20) == -20 && drive_axis(511,20) == 20);
     assert(drive_axis(-512,45) == -45 && drive_axis(511,45) == 45);
     for (int v = -64; v <= 64; v++) assert(drive_axis(v,45) == 0);
