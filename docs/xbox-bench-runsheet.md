@@ -34,7 +34,8 @@ does not schedule the assistant to resume; live supervision requires an active t
 | Visual correctness | Watch dot move with left stick; report only problems | Requires human eyes; telemetry cannot prove visible output | Passed: user confirmed correct and responsive |
 | Controller off/on | Turn controller off, wait for next cue, turn it on normally | Disconnect/reconnect events, new reports | Passed: existing bond reused, encryption and input recovered; user confirmed display |
 | Board restart persistence | Reset micro:bit, then press either front button with controller on | New boot, retained bond, encrypted reconnect without pairing | Passed: A detected first, bond resolved, re-encryption and new input; zero new pairings |
-| Second controller | First controller off; second in pairing mode, start fresh session | Identity distinction, pairing, input coverage | Pending |
+| Second controller | First controller off; second in pairing mode, start fresh session | Identity distinction, pairing, input coverage | Passed: distinct identity, firmware 5.23.6.0, all input checks and neutral return |
+| Both saved pairings | Turn second off; restart micro:bit, start first normally; then switch back to second | Existing bond resolution and re-encryption for each, no new pairing | Pending; configured for two saved bonds and one active connection |
 | Motor commissioning | Separate controlled bench setup and measured steering limits | Separate implementation and review | Not authorized by these diagnostic starts |
 
 Keep restart persistence distinct from pairing again. Time between a cue and input

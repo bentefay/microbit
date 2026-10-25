@@ -1,5 +1,19 @@
 # Bluepad container integration validation
 
+## Second controller
+
+The second controller presented a distinct identity and Microsoft firmware
+`5.23.6.0`. Pairing, HID setup and input succeeded. All four axes reached
+-512..511, both triggers reached 1023, A/B/X/Y and all D-pad directions were
+observed, and the sampled neutral-return check passed. The checkpoint recorded
+429 snapshots and 845 input-driven framebuffer updates. The report is saved
+locally as `.cache/observations/bluepad-second-controller-result.json`.
+
+The pinned application config has `NVM_NUM_DEVICE_DB_ENTRIES=2` (two stored BLE
+bonds), while Zephyr, BTstack and Bluepad32 are configured for one active
+controller connection. Two remembered pairings do not imply simultaneous input.
+Switching between both saved pairings is a separate pending check.
+
 ## Saved pairing after micro:bit reset
 
 The user reset the micro:bit with the controller still on, then pressed the front
