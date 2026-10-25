@@ -25,8 +25,33 @@ motor bench is 247464 B flash / 52776 B RAM. Bench HEX SHA-256:
 `255f57c7efab503eea5b8caeb645033bddf84ea232eb30a2dd83aa62f7f2e61d`.
 Flashed at 07:48:36 UTC, same-device remount with no `FAIL.TXT`. Fresh waiting
 heartbeats and `BP_MOTOR` waiting/step 0/result 0 confirm the start gate is pending.
-Physical result pending. Capture:
+Physical movement passed: Ben confirmed both motors moved in both directions.
+Front A started the countdown at device time 131088 ms; steps 1–4 issued movement
+at 134134, 136175, 138211 and 140252 ms, each followed by a successful stop.
+The sequence completed at 142276 ms with result 0; all movement/stop writes
+succeeded. This confirms observed bidirectional motion, not exact angle accuracy
+or loaded steering performance. Snapshot:
+`.cache/observations/bluepad-motor-result.json`. Capture:
 `.cache/observations/2026-10-25T07-48-39-291Z-bluepad-session-7f6ae58f.jsonl`.
+
+### Motor API delay and intended continuous controls
+
+The pinned vendor `moveToAbsAngle()` waits 4 ms after its I2C write and defaults
+to another 500 ms through `motorDelay(0.5, Second)`. Relative degree/turn moves
+default to estimated travel time plus 500 ms. Passing `DelayMode.NoDelay` removes
+the optional wait, retaining the position-command settling interval. `start()`
+and `stop()` have no such automatic motion wait. The existing MakeCode `drive.ts`
+already sends changed continuous M1 speeds and changed M2 targets with `NoDelay`.
+
+The native bench writes protocol packets directly, so none of those optional API
+waits apply. Its deliberate one-second movement/stop spacing is diagnostic only.
+For native Xbox control, preserve continuous M1 demand until changed or stopped,
+send only changed speed/steering targets, and map right-stick position to M2's
+position around the captured/measured centre. Repeated relative increments would
+accumulate steering error and are not the intended control. Keep I2C work outside
+the Bluetooth callback and preserve 4 ms exclusive bus settling after position
+writes without waiting for physical motion. That native driving integration is
+the next implementation; the currently flashed bench is still a finite sequence.
 
 ## Blue-controller A-button override
 

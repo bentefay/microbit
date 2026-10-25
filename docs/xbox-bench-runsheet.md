@@ -18,8 +18,14 @@ then M2 clockwise and reverse, 20 degrees each at 15 percent. The sequence stops
 between moves and ends permanently until reset. A+B aborts. Capture `BP_MOTOR`
 stages and ask for one combined physical confirmation of both movements/stopping.
 Xbox inputs still show on the matrix but do not drive these automatic motor steps.
-Physical result pending. After this check, the next implementation is Xbox-driven
+Passed: front A started the run; all four movement and stop commands succeeded,
+and Ben confirmed both motors moved in both directions. After this check, the next implementation is Xbox-driven
 motor control; the earlier MakeCode motor control is not linked into this native app.
+Use continuous speed for M1 (not repeated finite moves) and a stick-mapped target
+position for M2 (not accumulating increments). Send only changed demands, with
+drive commands first; use the nonblocking protocol and retain the vendor's 4 ms
+position-command bus settling interval. The one-second bench pauses are not part
+of the future driving loop. Normal Xbox-driven motors remain to be implemented.
 
 ## Two-controller extension
 

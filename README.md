@@ -42,7 +42,8 @@ motor wherever it happens to be.
 bench firmware.** Either front micro:bit button starts scanning and one automatic
 M1 forward/reverse, M2 forward/reverse sequence (20° each at 15%, with stops).
 It waits motionless at boot. This is the explicit `--motor-bench` variant; the
-default report-only firmware remains motor-free. Native motor results are pending.
+default report-only firmware remains motor-free. Both loose motors passed movement
+in both directions on the native bench; all movement/stop writes returned success.
 Container builds, DAPLink transfer and live firmware readiness heartbeat passed.
 A physical A-button start, Xbox pairing, control coverage and sampled neutral return
 have passed. Controller power-cycle recovery and saved-pairing recovery after a
