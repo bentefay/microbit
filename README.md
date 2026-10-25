@@ -40,8 +40,9 @@ motor wherever it happens to be.
 
 **Currently flashed (2026-10-25): experimental Bluepad32 Xbox BLE report-only
 firmware**, with no motor adapter linked. Container builds, the DAPLink transfer
-and live firmware readiness heartbeat passed. Either front button starts scanning;
-controller behavior still needs observation. See
+and live firmware readiness heartbeat passed. Either front button starts scanning.
+A physical A-button start, Xbox pairing, control coverage and sampled neutral return
+have passed; disconnect/reconnect and bond persistence remain untested. See
 [container validation](docs/bluepad-container-validation.md).
 
 The MakeCode `car` project still selects the motor-stopped receiver investigation,

@@ -18,8 +18,31 @@ The updated image was flashed at 06:19:25 UTC, with same-device remount and no
 `FAIL.TXT`. HEX SHA-256:
 `44d99c78d6f1d56e9731dcb3fc7e68d05a843a8cc271cfe17d804e2bb11e3104`.
 The continuous monitor then received repeated `waiting` heartbeats from the
-firmware: Bluetooth initialization and the button GPIO setup completed. Actual
-button detection and controller pairing remain separate physical observations.
+firmware: Bluetooth initialization and the button GPIO setup completed.
+
+The user subsequently pressed A. The capture recorded `BP_START`, successful
+encrypted pairing, Microsoft firmware revision `5.23.6.0`, HID setup and incoming
+gamepad reports. No typed start confirmation was required. The controller exercise
+passed all sampled coverage checks, including return to neutral:
+
+| Control | Observed range / coverage |
+| --- | --- |
+| Left X | -507 to 511 |
+| Left Y | -512 to 485 |
+| Right X | -512 to 511 |
+| Right Y | -512 to 511 |
+| Both triggers | Each reached 1023 |
+| Face buttons | A, B, X, Y observed |
+| D-pad | All four directions observed |
+| Neutral | Last sampled axes 30, 10, -40, 19; triggers/buttons released |
+
+`run bluepad report CAPTURE.jsonl` reproduces the analysis. Coverage uses diagnostic
+thresholds (sticks beyond ±400, triggers at least 900, neutral axes within ±64)
+and at least 200 ms of neutral snapshots without sample gaps over 500 ms. These
+thresholds are not steering calibration. The report resets coverage on an observed
+device restart. CLI tests including the report now total 47 passed (654 assertions).
+Physical B-button behavior, disconnect/reconnect, bond persistence, radio-loss
+timing and the second controller remain untested. Motor code remains absent.
 
 Evidence capture:
 `.cache/observations/2026-10-25T06-19-26-805Z-bluepad-session-92525a17.jsonl`.
