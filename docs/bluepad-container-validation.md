@@ -1,5 +1,33 @@
 # Bluepad container integration validation
 
+## Button-gated monitoring update
+
+Later on 2026-10-25, added `run bluepad monitor` and a firmware start gate. The
+firmware waits for a debounced A/B press before starting scanning, publishes a
+one-second heartbeat and latches the start-button identity until reboot. This is
+a report-only test start, not motor authorization. The monitor records continuously
+without a human-response deadline and reports telemetry silence separately from
+controller disconnection. Terminal bells are best effort; prompts remain visible.
+
+Validation: 45 CLI tests passed (649 assertions), and both packet and button-gate
+C tests passed with ASan/UBSan in Docker. The report-only native build passed its
+artifact checks. The button tests cover either/both buttons, bounce, a button held
+at boot, repeated presses and clock wraparound.
+
+The updated image was flashed at 06:19:25 UTC, with same-device remount and no
+`FAIL.TXT`. HEX SHA-256:
+`44d99c78d6f1d56e9731dcb3fc7e68d05a843a8cc271cfe17d804e2bb11e3104`.
+The continuous monitor then received repeated `waiting` heartbeats from the
+firmware: Bluetooth initialization and the button GPIO setup completed. Actual
+button detection and controller pairing remain separate physical observations.
+
+Evidence capture:
+`.cache/observations/2026-10-25T06-19-26-805Z-bluepad-session-92525a17.jsonl`.
+The live status file is `.cache/observations/bluepad-live.json`; check its timestamp
+and `active` field before treating it as current. A heartbeat proves firmware loop
+activity, not controller radio freshness. The following records describe the
+earlier container integration, before this update.
+
 Validated locally on 2026-10-25. The imported report-only Bluepad32/BTstack/Zephyr
 application is experimental; successful compilation and programming do not prove
 Bluetooth operation. See the [project workflow](../workspace/projects/bluepad/README.md).

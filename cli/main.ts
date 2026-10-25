@@ -11,6 +11,7 @@ import { joystickReport } from './joystick-report';
 import { research } from './research';
 import { receiverReport } from './receiver-report';
 import { bluepad, bluepadInputHash, validateBluepadHex } from './bluepad';
+import { monitorBluepad } from './bluepad-monitor';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -120,7 +121,7 @@ async function mount() {
   }
   throw new Error('No mounted MICROBIT filesystem belongs to the detected USB device. Mount it in your desktop first.');
 }
-async function serial(seconds = '10', label = 'capture') {
+async function serial(seconds = '10', label = 'capture', continuous = false) {
   projectName(label);
   const duration = Number(seconds);
   if (!Number.isInteger(duration) || duration < 1 || duration > 600) throw new Error('Serial duration must be 1–600 seconds');
@@ -134,6 +135,15 @@ async function serial(seconds = '10', label = 'capture') {
   }
   if (matches.length !== 1) throw new Error('Expected one CDC serial interface for this micro:bit');
   const device = matches[0];
+  if (continuous) {
+    await monitorBluepad(['docker', 'run', '--rm', '--init', '--user', identity(),
+      '--group-add', String((await stat(device)).gid), '--network', 'none',
+      '--cap-drop=ALL', '--security-opt=no-new-privileges', '--read-only',
+      '--device', `${device}:/dev/microbit:rw`,
+      '--mount', `type=bind,src=${join(root, 'cli/serial-transport.mjs')},dst=/serial-transport.mjs,readonly`,
+      '--entrypoint', 'node', image, '/serial-transport.mjs'], root);
+    return;
+  }
   await captureSerial(['docker', 'run', '--rm', '--init', '--user', identity(), '--group-add', String((await stat(device)).gid),
     '--network', 'none', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--read-only',
     '--device', `${device}:/dev/microbit:rw`, image, 'serial', String(duration)], join(root, '.cache/observations'), label);
@@ -208,6 +218,8 @@ const help = `micro:bit workspace — run COMMAND
   image bluepad                Download pinned Zephyr/Bluepad sources and tools into Docker
   build bluepad [--nezha-compile-only]  Offline native report-only build; never flashes
   bluepad test|versions|lock-system    Container packet tests / tool versions / Debian lock
+  bluepad monitor              Continuous capture; wait for micro:bit A/B start signal
+  bluepad inspect PATH [TEXT]   Read pinned native source inside Docker
   native lock                  Resolve native release tags and transitive source pins
   provision [PROJECT]          Alias for an offline first build; sources are in the image
   build [PROJECT] [--force]    Offline local PXT/native build (default car)
@@ -260,7 +272,10 @@ export async function main(args: string[]) {
         if (arg === 'bluepad') await bluepad(root, ['build', ...rest], command, validateHex);
         else await container(cmd, arg, rest);
         break;
-      case 'bluepad': await bluepad(root, [arg, ...rest], command, validateHex); break;
+      case 'bluepad':
+        if (arg === 'monitor' && rest.length === 0) await serial('10', 'bluepad-session', true);
+        else await bluepad(root, [arg, ...rest], command, validateHex);
+        break;
       case 'pxt': await container('pxt', arg, rest); break;
       case 'inspect': await container('inspect', 'car', [arg || '', ...rest]); break;
       case 'source': await inspectSource(arg, rest[0]); break;

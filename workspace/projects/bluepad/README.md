@@ -71,7 +71,31 @@ Only after authorizing programming:
 run device
 run flash bluepad --confirm
 run serial 30 xbox-pairing
+run bluepad monitor
 ```
+
+The continuous monitor has no human-response timeout. Once a live `waiting`
+heartbeat is observed, put one controller into pairing mode and press/release
+either front micro:bit button (A or B). The firmware requires a stable release
+before accepting a press, debounces for 40 ms, and begins scanning only once per
+boot. A button held during startup does not count. Reset the board for a new run.
+Button readiness starts a motionless diagnostic; it never authorizes motors.
+
+Firmware emits `BP_STATUS` every second with protocol version, device uptime,
+state, latched start-button mask (A=1, B=2) and total input-report count. The latch
+survives delayed opening of serial, but resets on reboot. `BP_INPUT` snapshots
+contain device time, report count, four axes, two triggers, buttons, D-pad and
+miscellaneous buttons, capped at ten per second. A status heartbeat proves loop
+liveness, not fresh controller radio input. Snapshots may omit brief button edges.
+
+The monitor saves all serial lines in `.cache/observations/*bluepad-session*.jsonl`
+and atomically updates `.cache/observations/bluepad-live.json`. State transitions
+print a terminal bell and a clear instruction; sound depends on terminal settings.
+No desktop notification service is required. Five seconds without status marks
+readiness unverified without ending the wait. The capture remains open until
+stopped or a transport error occurs; the agent must remain active to respond live.
+The monitor neither builds nor flashes. `run bluepad inspect PATH [TEXT]` reads
+pinned source files inside the native image for reproducible troubleshooting.
 
 Builds never flash. Flashing checks the verified report-only artifact and unchanged
 source, uses the existing device-correlated DAPLink transfer, then checks remount

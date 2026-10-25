@@ -66,6 +66,17 @@ export async function bluepadInputHash(root: string) {
 
 export async function bluepad(root: string, args: string[], command: Command, validateHex: (hex: string) => void) {
   const [action, ...flags] = args;
+  if (action === 'inspect' && flags.length >= 1 && flags.length <= 2) {
+    await command(['docker', 'run', '--rm', '--network', 'none', '--read-only',
+      '--cap-drop=ALL', '--security-opt=no-new-privileges', image, 'node', '-e',
+      `const fs = require('node:fs');
+       const path = fs.realpathSync(process.argv[1]);
+       if (!path.startsWith('/opt/bluepad/')) throw new Error('Inspect only Bluepad image sources');
+       const lines = fs.readFileSync(path, 'utf8').split('\\n');
+       lines.forEach((line, i) => { if (!process.argv[2] || line.includes(process.argv[2])) console.log((i + 1) + ': ' + line); });`,
+      ...flags]);
+    return;
+  }
   if (action === 'lock-sdk' && flags.length === 0) {
     const path = join(root, 'toolchain/bluepad/sdk.json');
     const { version } = JSON.parse(await readFile(path, 'utf8'));
@@ -135,10 +146,12 @@ export async function bluepad(root: string, args: string[], command: Command, va
   const imageId = metadata.Id;
   const run = (argv: string[], capture = false) => command(['docker', 'run', ...bluepadArgs(root, output), imageId, ...argv], capture);
   if (action === 'test') {
+    for (const name of ['nezha_packet', 'start_gate']) {
     await run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-g',
-      '-I/app/app', '/app/tests/test_nezha_packet.c', '-o', '/build/test-packets']);
-    await run(['/build/test-packets']);
-    console.log('Bluepad packet tests passed inside the offline container (ASan/UBSan).');
+      '-I/app/app', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
+    await run([`/build/test-${name}`]);
+    }
+    console.log('Bluepad packet and start-button tests passed inside the offline container (ASan/UBSan).');
     return;
   }
   // Never leave a prior success receipt after a failed rebuild.

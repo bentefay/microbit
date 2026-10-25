@@ -28,7 +28,8 @@ export class SerialLines {
   get incomplete() { return !!(this.transport || this.serial); }
 }
 
-export async function captureSerial(argv: string[], directory: string, label: string) {
+export async function captureSerial(argv: string[], directory: string, label: string,
+  onLine?: (line: string, ms: number) => Promise<boolean>) {
   await mkdir(directory, { recursive: true });
   const file = join(directory, `${new Date().toISOString().replace(/[:.]/g, '-')}-${label}-${randomUUID().slice(0, 8)}.jsonl`);
   const output = await open(file, 'wx', 0o600);
@@ -45,6 +46,7 @@ export async function captureSerial(argv: string[], directory: string, label: st
       for (const line of parser.push(decoder.decode(chunk, { stream: true }))) {
         const ms = Math.round(performance.now() - start);
         await write({ type: 'line', ms, line });
+        if (onLine && !await onLine(line, ms)) continue;
         if (line.startsWith('LAT_SAMPLE,') || line.startsWith('RX_READ,')) continue;
         if (line.startsWith('RX_FRAME,') && Number(line.split(',')[1]) % 20 !== 0) continue;
         const match = /^(leftY_raw|rightX_raw):\s*(-?\d+)$/.exec(line);
