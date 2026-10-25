@@ -1,0 +1,50 @@
+[
+  {
+    "name": "zephyr",
+    "repository": "https://github.com/zephyrproject-rtos/zephyr",
+    "revision": "c425eabae5724d39fdd828d31ec35dc850795fe1",
+    "archive_url": "https://codeload.github.com/zephyrproject-rtos/zephyr/tar.gz/c425eabae5724d39fdd828d31ec35dc850795fe1",
+    "archive_sha256": "9c6d9f010b01d035c584ef6eae7c0cb2790305a1b7293d65ae18fb272865d6a4",
+    "archive_size_bytes": 132518011
+  },
+  {
+    "name": "btstack",
+    "repository": "https://github.com/bluekitchen/btstack",
+    "revision": "8a8b616e04b07612a273978131efad32a083b1ed",
+    "archive_url": "https://codeload.github.com/bluekitchen/btstack/tar.gz/8a8b616e04b07612a273978131efad32a083b1ed",
+    "archive_sha256": "447648c1abd783363a8f19cd4b09058e1609854117ce823878506b58ab8ff6ea",
+    "archive_size_bytes": 66848601
+  },
+  {
+    "name": "bluepad32",
+    "repository": "https://github.com/ricardoquesada/bluepad32",
+    "revision": "80d6314e46f871719fbb4b721a2cc02227c4f369",
+    "archive_url": "https://codeload.github.com/ricardoquesada/bluepad32/tar.gz/80d6314e46f871719fbb4b721a2cc02227c4f369",
+    "archive_sha256": "94d0058769e067ff52e08a8a792c05e7f8358355b5879810a5ce9ba36d54055e",
+    "archive_size_bytes": 2309357
+  },
+  {
+    "name": "cmsis",
+    "repository": "https://github.com/zephyrproject-rtos/cmsis",
+    "revision": "512cc7e895e8491696b61f7ba8066b4a182569b8",
+    "archive_url": "https://codeload.github.com/zephyrproject-rtos/cmsis/tar.gz/512cc7e895e8491696b61f7ba8066b4a182569b8",
+    "archive_sha256": "425f802d1a4e7c962738572cd193fb41dfa1e83e1b75469f8f3f2158a7168e2b",
+    "archive_size_bytes": 458968
+  },
+  {
+    "name": "CMSIS_6",
+    "repository": "https://github.com/zephyrproject-rtos/CMSIS_6",
+    "revision": "1c1840af7a7e757d6e2fec3ddb0e5ce0dfcc93c8",
+    "archive_url": "https://codeload.github.com/zephyrproject-rtos/CMSIS_6/tar.gz/1c1840af7a7e757d6e2fec3ddb0e5ce0dfcc93c8",
+    "archive_sha256": "4ee154a85f45bdd27b35c7341ce4ac487a863a2c9c513d3baa19302f77934649",
+    "archive_size_bytes": 9227045
+  },
+  {
+    "name": "hal_nordic",
+    "repository": "https://github.com/zephyrproject-rtos/hal_nordic",
+    "revision": "c708b9fe1b7a36090c468374811a6e934b97e54a",
+    "archive_url": "https://codeload.github.com/zephyrproject-rtos/hal_nordic/tar.gz/c708b9fe1b7a36090c468374811a6e934b97e54a",
+    "archive_sha256": "f764e758797fd541240516adcdcb77a5f86b2886b3d70b6af9b61f60c1ccfcd8",
+    "archive_size_bytes": 34820701
+  }
+]

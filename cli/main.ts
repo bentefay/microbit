@@ -10,6 +10,7 @@ import { displayPreview } from './display-preview';
 import { joystickReport } from './joystick-report';
 import { research } from './research';
 import { receiverReport } from './receiver-report';
+import { bluepad, bluepadInputHash, validateBluepadHex } from './bluepad';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -139,11 +140,16 @@ async function serial(seconds = '10', label = 'capture') {
 }
 async function flash(project: string, confirmed: boolean) {
   if (!confirmed) throw new Error('Flashing starts the program. Use run flash PROJECT --confirm after arranging a controlled bench test.');
-  const path = join(workspace, 'projects', projectName(project), 'built');
+  const path = join(workspace, 'projects', projectName(project), 'built', ...(project === 'bluepad' ? ['report-only'] : []));
   const hex = await readFile(join(path, 'binary.hex'), 'utf8');
   validateHex(hex);
   const stamp = JSON.parse(await readFile(join(path, 'verified-build.json'), 'utf8'));
-  if (stamp.hex !== digest(hex) || stamp.source !== await sourceHash(resolve(path, '..'))) throw new Error('Source or artifact changed since the verified build. Run build again.');
+  if (project === 'bluepad') {
+    validateBluepadHex(hex);
+    if (stamp.variant !== 'report-only' || stamp.motorAdapterPresent !== false) throw new Error('Only the motor-free Bluepad diagnostic can be flashed');
+  }
+  const currentSource = project === 'bluepad' ? await bluepadInputHash(root) : await sourceHash(resolve(path, '..'));
+  if (stamp.hex !== digest(hex) || stamp.source !== currentSource) throw new Error('Source or artifact changed since the verified build. Run build again.');
   const device = await mount();
   console.log(`Flashing ${project} to ${device.serial} at ${device.target}`);
   await command(['docker', 'run', '--rm', '--user', identity(), '--network', 'none', '--cap-drop=ALL',
@@ -199,6 +205,9 @@ const help = `micro:bit workspace — run COMMAND
   image versions               Report installed container packages
   image lock-system            Record installed Debian versions for drift checking
   image browser                Build the optional browser-test image
+  image bluepad                Download pinned Zephyr/Bluepad sources and tools into Docker
+  build bluepad [--nezha-compile-only]  Offline native report-only build; never flashes
+  bluepad test|versions|lock-system    Container packet tests / tool versions / Debian lock
   native lock                  Resolve native release tags and transitive source pins
   provision [PROJECT]          Alias for an offline first build; sources are in the image
   build [PROJECT] [--force]    Offline local PXT/native build (default car)
@@ -239,6 +248,7 @@ export async function main(args: string[]) {
       case 'image':
         if (arg === 'build') await buildImage('toolchain');
         else if (arg === 'browser') await buildImage('browser');
+        else if (arg === 'bluepad') await bluepad(root, ['image', ...rest], command, validateHex);
         else if (arg === 'lock-system') {
           const manifest = await command(['docker', 'run', '--rm', '--network', 'none', image, 'system-manifest'], true);
           JSON.parse(manifest);
@@ -246,7 +256,11 @@ export async function main(args: string[]) {
         }
         else if (arg === 'versions') await command(['docker','run','--rm','--network','none',image,'versions']);
         else throw new Error(help); break;
-      case 'build': case 'provision': await container(cmd, arg, rest); break;
+      case 'build': case 'provision':
+        if (arg === 'bluepad') await bluepad(root, ['build', ...rest], command, validateHex);
+        else await container(cmd, arg, rest);
+        break;
+      case 'bluepad': await bluepad(root, [arg, ...rest], command, validateHex); break;
       case 'pxt': await container('pxt', arg, rest); break;
       case 'inspect': await container('inspect', 'car', [arg || '', ...rest]); break;
       case 'source': await inspectSource(arg, rest[0]); break;

@@ -1,0 +1,103 @@
+# Experimental Xbox BLE input on micro:bit V2
+
+This is the report-only Bluepad32 + BTstack + Zephyr port from
+`Eli-controller-build-investigation-2026-10-25/eli-controller-source/microbit-bluepad-source`.
+It replaces the MakeCode application when explicitly flashed. It does not replace
+DAPLink, implement steering, or send motor commands. Hardware behavior is still
+experimental; compilation does not establish pairing or reliable input.
+
+## Container workflow
+
+From the repository root:
+
+```sh
+run image bluepad
+run build bluepad
+run bluepad test
+```
+
+Image preparation (and explicit dependency-lock maintenance) needs network access.
+The digest-pinned Debian Trixie/Node image installs CMake, native-test GCC, Python
+and Python libraries through Debian's signed APT repositories. The ARM compiler
+and C library come from the official Zephyr SDK 1.0.0, downloaded and SHA-256
+verified inside the image using `toolchain/bluepad/sdk.json`.
+`toolchain/bluepad/system-lock.json` checks installed
+package versions for drift. There is no host pip, PlatformIO, west workspace,
+compiler installation, or npm installation. The existing MakeCode image is separate.
+
+Zephyr, Bluepad32, BTstack, CMSIS and the Nordic HAL are baked into the image from
+exact commits. Each source archive must match the SHA-256 and size in
+`toolchain/bluepad/sources.json` before safe extraction. Upstream source is not
+patched. The imported app's CMake source roots now point into the image.
+
+Compilation and packet tests run without a network, as the host UID/GID, with
+capabilities dropped, no new privileges, a read-only container filesystem and
+read-only project source. Only the chosen `built/` output directory and a temporary
+filesystem are writable. No hardware, home directory or Docker socket is mounted.
+Docker and the dependency-free Bun/TypeScript CLI run on the host. Safe-chain
+applies to npm installation in the existing MakeCode image; it is not a runtime
+sandbox or a scanner for APT/Python/C dependencies.
+
+The native image uses a separate Trixie base because the existing Bookworm image
+has an older CMake and lacks the packaged Python requirements. Both bases are
+pinned by digest. `run bluepad versions` reports tools and Debian packages.
+For deliberate maintenance, `run bluepad lock-base` resolves the configured base,
+`run bluepad lock-sdk` resolves SDK release archive hashes through a container,
+and `run bluepad lock-system` records an already-built image's package manifest.
+Review and commit lock changes, then rebuild the image. Builds refuse stale image
+recipes; package drift is an error rather than an implicit lock update.
+
+## Output and checks
+
+`built/report-only/binary.hex` is the verified diagnostic image. The directory also
+contains a source/image/hash receipt, linked symbols, size report and the full
+CMake build tree, including ELF, configuration, devicetree and map. These generated
+files are ignored by Git. Every firmware build configures from a clean build tree.
+The host CLI verifies Intel HEX checksums, excludes addresses at/above `0x7a000`
+(including pairing storage and UICR), rejects unresolved symbols, checks key
+Bluetooth implementations are linked and checks that motor code is absent.
+
+`run build bluepad --nezha-compile-only` separately compiles and retains the
+uninvoked motor adapter. It has its own output directory and is never selected by
+the flash command. `run bluepad test` runs packet encoding tests with ASan/UBSan
+inside the image. This adapter is speed/stop only, not position steering or a
+complete control layer.
+
+## Explicit programming and diagnostics
+
+Only after authorizing programming:
+
+```sh
+run device
+run flash bluepad --confirm
+run serial 30 xbox-pairing
+```
+
+Builds never flash. Flashing checks the verified report-only artifact and unchanged
+source, uses the existing device-correlated DAPLink transfer, then checks remount
+and `FAIL.TXT`. It preserves the existing MakeCode source and built files. First
+hardware checks should use disconnected motors. Firmware prints over 115200-baud
+serial and logs gamepad snapshots at most ten times per second. These snapshots
+can omit brief button edges; they are diagnostics, not a motor-control protocol.
+
+Xbox 1708 needs compatible BLE firmware (Bluepad32 documents v5.15+); older
+Classic firmware cannot work on this radio. Boot, pairing, sustained input,
+disconnect/reconnect and bond persistence need physical testing. The last 24 KiB
+of flash is reserved for pairing storage; static RAM size is not a runtime peak.
+
+Original startup copyright/license notices and the supplied Bluepad32 license
+notice are retained in `app/main.c` and `LICENSES/`. Upstream licenses, including
+BTstack's separate terms, continue to apply. Dependency commits and archive hashes
+come from the source bundle; its historical builds are not treated as validation
+of this container integration.
+
+The original host preparation scripts are deliberately not imported. Two build
+integration fixes are encoded in the pipeline: Zephyr's compiler-capability cache
+is explicitly under `/build/cmake/cache` so it cannot write into image sources;
+and the ARM build uses the SDK 1.0 required by this Zephyr revision. Its supported
+C library is Picolibc, selected in `prj.conf` instead of the imported Newlib setting.
+Debian's ARM Newlib failed Zephyr's retargetable-locking requirement; SDK 0.17.4
+was rejected by Zephyr's SDK version check. Neither check was suppressed.
+The app's CMake also supplies `<stddef.h>` to Bluepad32's `uni_hid_device.c`, which
+uses `ptrdiff_t` without including its standard header. This fixes reliance on a
+Newlib transitive include without modifying the downloaded vendor source.

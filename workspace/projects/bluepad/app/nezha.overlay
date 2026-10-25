@@ -1,0 +1,22 @@
+// External edge connector: P20/SDA = nRF P1.00, P19/SCL = nRF P0.26.
+// The board's i2c0 remains the separate internal sensor bus.
+&pinctrl {
+    nezha_i2c1_default: nezha_i2c1_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>, <NRF_PSEL(TWIM_SCL, 0, 26)>;
+        };
+    };
+    nezha_i2c1_sleep: nezha_i2c1_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>, <NRF_PSEL(TWIM_SCL, 0, 26)>;
+            low-power-enable;
+        };
+    };
+};
+&i2c1 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+    pinctrl-0 = <&nezha_i2c1_default>;
+    pinctrl-1 = <&nezha_i2c1_sleep>;
+    pinctrl-names = "default", "sleep";
+};

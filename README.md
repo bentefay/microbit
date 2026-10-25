@@ -38,9 +38,14 @@ movement/aim split in FPS controls. Returning the steering stick to center shoul
 request the measured straight-ahead position. It must not merely stop a steering
 motor wherever it happens to be.
 
-**Currently selected/flashed: the motor-stopped receiver investigation**, described
-in [docs/receiver-investigation.md](docs/receiver-investigation.md). The input-lag
-cause is unresolved; no timing workaround has been declared a fix.
+**Currently flashed (2026-10-25): experimental Bluepad32 Xbox BLE report-only
+firmware**, with no motor adapter linked. Container builds and the DAPLink transfer
+passed; boot and controller behavior still need observation. See
+[container validation](docs/bluepad-container-validation.md).
+
+The MakeCode `car` project still selects the motor-stopped receiver investigation,
+described in [docs/receiver-investigation.md](docs/receiver-investigation.md).
+The PS2 input-lag cause is unresolved; no timing workaround has been declared a fix.
 
 The normal program is **`car.startDriving()`**, in `drive.ts`.
 `run car-mode drive` selects it; `run car-mode receiver-lab` selects the investigation.
@@ -215,6 +220,12 @@ I2C timing fix, and further loss-of-control tests. Loose-motor tests do not repl
 those checks. Speed percentages are **not** an independently adjustable torque limit.
 
 ## Normal workflow
+
+The experimental direct Xbox Bluetooth port has a separate container workflow:
+`run image bluepad`, `run build bluepad`, and `run bluepad test`.
+Dependency downloads and all native tools run inside Docker; firmware builds are
+offline and never flash. See [the Bluepad project](workspace/projects/bluepad/README.md)
+for isolation, dependency locks, output checks and explicit programming commands.
 
 ```sh
 cd ~/Code/microbit

@@ -1,0 +1,4 @@
+{
+  "baseImage": "node@sha256:8eb619e402eaede1748a3c8173bffab391592812e85136452f781741c7242ddf",
+  "architecture": "linux/amd64"
+}
