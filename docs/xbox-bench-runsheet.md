@@ -19,13 +19,15 @@ the remaining controller's most recent input; losing both clears it. In override
 losing blue clears the matrix and keeps the mode latched until blue reconnects.
 Resetting the micro:bit starts shared mode again. This remains a motor-free diagnostic.
 
-The existing checks below passed before the override update. New physical check:
-with both connected, confirm shared handover; tap **blue Xbox A**, oppose Eli up
-with blue down, then centre blue while Eli moves; tap blue A again and move Eli's
-stick to confirm shared handover returns. Also check Eli's A cannot toggle override
-and blue off/on during override retains exclusive ownership. Hardware validation
-of the new toggle is pending; container tests cover both slot orders, held A,
-opposing input, shared handover and disconnect/reconnect with swapped slots.
+The existing connection checks below passed before the override update. The new
+physical toggle/shared-control check also passed: Ben confirmed "Tested. Perfect!"
+after the cue to oppose Eli up with blue down in override, centre blue while Eli
+moves, then tap blue A again and confirm shared handover. Telemetry records both
+identities connected, override enabled at 419179 ms with blue owning the display,
+and disabled at 431164 ms. Both controllers drove the display during this session.
+Container tests also cover both slot orders, held A, Eli's A, opposing input and
+disconnect/reconnect with swapped slots. Blue off/on while override is latched
+has automated coverage but has not yet been physically verified in this update.
 
 | Check | Physical action after readiness cue | Evidence | Status |
 | --- | --- | --- | --- |

@@ -18,11 +18,20 @@ The native build passes artifact checks, with no motor adapter or motor calls:
 246256 bytes flash, 50872 bytes static RAM. HEX SHA-256:
 `af5452bc4040615635df5fb8be1d187c88ed5ace2f94b3d140a5c6a55ac1146b`.
 `BP_PRIORITY` records every toggle before snapshot throttling, plus heartbeat
-state. The CLI reports current mode, blue slot and recent transitions. Hardware
-validation of the toggle is pending; prior connection checks are recorded below.
+state. The CLI reports current mode, blue slot and recent transitions.
 Flashed at 07:32:58 UTC with same-device remount and no `FAIL.TXT`. Live waiting
 heartbeats confirm matrix readiness and initial shared mode. Current capture:
 `.cache/observations/2026-10-25T07-33-03-338Z-bluepad-session-06f480b9.jsonl`.
+
+Physical toggle/shared-control check passed: Ben confirmed "Tested. Perfect!"
+after the opposing-stick, blue-centre and return-to-shared-control sequence.
+The capture shows front micro:bit A start, both identities connected (blue slot 1),
+override on at device time 419179 ms with owner 1, and override off at 431164 ms.
+At the saved checkpoint there were 1775 reports and 492/804 per-controller display
+writes while both connected. Final mode was shared. The snapshot is saved locally
+as `.cache/observations/bluepad-override-result.json`. This confirms the tested LED
+behavior, not motor control. Disconnect/reconnect while override is latched has
+automated coverage only; prior physical connection checks below predate this change.
 
 ## Two simultaneous controllers: implementation
 

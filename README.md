@@ -54,8 +54,8 @@ On the blue Xbox controller, **A toggles exclusive override**. Override off keep
 the shared latest-movement behavior; override on accepts only blue input. The role
 follows blue's saved Bluetooth identity, not connection order. If blue disconnects
 during override, the matrix clears until it returns; a board reset starts shared
-mode. This update is flashed and passed automated tests; its physical toggle check
-is pending. It remains LED-only, with no motor control.
+mode. This update is flashed and passed automated tests and the physical override
+toggle/shared-control check, confirmed by Ben. It remains LED-only, with no motor control.
 A slower initial report cadence on the
 second improved after normal reconnection; its cause is still under investigation.
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
