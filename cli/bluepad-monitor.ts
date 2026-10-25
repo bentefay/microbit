@@ -10,6 +10,7 @@ export class BluepadMonitor {
   lastStatusAt: number | null = null;
   lastInput: number[] | null = null;
   private uptime = 0;
+  private sawStart = false;
   push(line: string, hostMs: number): string | undefined {
     const p = line.split(',');
     const before = this.state;
@@ -17,7 +18,10 @@ export class BluepadMonitor {
       ['initializing', 'button-error', 'waiting', 'scanning', 'connected'].includes(p[3]) &&
       [p[2], p[4], p[5]].every(x => /^\d+$/.test(x)) && Number(p[4]) <= 3) {
       const uptime = Number(p[2]);
-      if (uptime < this.uptime || p[3] === 'waiting') this.lastInput = null;
+      if (uptime < this.uptime || p[3] === 'waiting') {
+        this.lastInput = null;
+        this.sawStart = false;
+      }
       this.uptime = uptime;
       this.lastStatusAt = hostMs;
       this.state = p[3];
@@ -25,8 +29,18 @@ export class BluepadMonitor {
       this.reports = Number(p[5]);
       if (this.state !== before) {
         if (this.state === 'waiting') return 'READY: put one Xbox controller in pairing mode, then press and release micro:bit A or B. No chat reply needed.';
-        if (this.state === 'scanning') return `START RECEIVED (${this.button === 1 ? 'A' : this.button === 2 ? 'B' : 'A+B'}): watching for a controller connection.`;
-        if (this.state === 'connected') return 'CONTROLLER READY: input monitoring is active.';
+        if (this.state === 'scanning') {
+          this.lastInput = null;
+          if (this.sawStart) return before === 'connected'
+            ? 'CONTROLLER DISCONNECTED: turn the controller on normally when ready; watching for recovery.'
+            : 'SCANNING: the start was already acknowledged; still watching for a controller.';
+          this.sawStart = true;
+          return `START RECEIVED (${this.button === 1 ? 'A' : this.button === 2 ? 'B' : 'A+B'}): watching for a controller connection.`;
+        }
+        if (this.state === 'connected') {
+          this.sawStart = true;
+          return 'CONTROLLER READY: input monitoring is active.';
+        }
         return `Firmware state: ${this.state}`;
       }
     } else if (p[0] === 'BP_INPUT' && p.length === 12 && p.slice(1).every(x => /^-?\d+$/.test(x)) &&

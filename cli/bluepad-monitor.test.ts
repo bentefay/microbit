@@ -35,3 +35,13 @@ test('malformed or unsupported status cannot establish readiness', () => {
   }
   expect(m.lastStatusAt).toBeNull();
 });
+test('disconnect is not announced as a new physical button press', () => {
+  const m = new BluepadMonitor();
+  m.push('BP_STATUS,1,1000,scanning,1,0', 0);
+  m.push('BP_STATUS,1,2000,connected,1,1', 1000);
+  m.push('BP_INPUT,2100,2,0,0,0,0,0,0,0,0,0', 1100);
+  expect(m.push('BP_STATUS,1,3000,scanning,1,2', 2000)).toContain('DISCONNECTED');
+  expect(m.lastInput).toBeNull();
+  m.push('BP_STATUS,1,4000,connected,1,2', 3000);
+  expect(m.push('BP_INPUT,4100,3,0,0,0,0,0,0,0,0,0', 3100)).toContain('INPUT RECEIVED');
+});

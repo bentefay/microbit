@@ -1,5 +1,16 @@
 # Bluepad container integration validation
 
+## Controller power-cycle recovery
+
+The user turned the controller off and on normally. The micro:bit remained running.
+The capture recorded a disconnect (reason `0x08`, supervision timeout), identity
+resolution from the existing bond, successful re-encryption, HID reconnection and
+fresh input. The user confirmed the display worked again. There were two HID
+connections and only one pairing in this firmware boot, so recovery reused the
+bond. This establishes controller power-cycle recovery, separately from whether
+the bond persists across a micro:bit restart. The physical off instant was not
+instrumented, so no radio-loss detection latency is claimed.
+
 ## Left-stick matrix update
 
 Added the previous moving-dot display to the native diagnostic using the pinned
