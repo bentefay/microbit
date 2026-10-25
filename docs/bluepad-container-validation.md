@@ -1,5 +1,18 @@
 # Bluepad container integration validation
 
+## Saved pairing after micro:bit reset
+
+The user reset the micro:bit with the controller still on, then pressed the front
+buttons (A was accepted first). The capture observed boot output and reset uptime,
+the start latch, resolution of the existing controller identity, successful
+re-encryption and HID setup. The new boot recorded one connection, zero pairing
+events and 107 input-driven display updates at the checkpoint. This establishes
+saved-pairing recovery after a micro:bit reset. It does not establish bond retention
+through a firmware reflash; the earlier reflash session performed fresh pairing.
+
+Evidence remains in the continuous capture named below; the latest-boot report is
+also saved locally as `.cache/observations/bluepad-restart-result.json`.
+
 ## Controller power-cycle recovery
 
 The user turned the controller off and on normally. The micro:bit remained running.

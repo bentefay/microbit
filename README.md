@@ -42,8 +42,8 @@ motor wherever it happens to be.
 firmware**, with no motor adapter linked. Container builds, the DAPLink transfer
 and live firmware readiness heartbeat passed. Either front button starts scanning.
 A physical A-button start, Xbox pairing, control coverage and sampled neutral return
-have passed. Controller power-cycle recovery also passed using the existing bond;
-micro:bit restart persistence remains unverified. See
+have passed. Controller power-cycle recovery and saved-pairing recovery after a
+micro:bit restart also passed. See
 [container validation](docs/bluepad-container-validation.md).
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
 the [minimal-input bench runsheet](docs/xbox-bench-runsheet.md).

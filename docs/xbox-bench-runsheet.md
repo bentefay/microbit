@@ -33,7 +33,7 @@ does not schedule the assistant to resume; live supervision requires an active t
 | Alternate start button | Press B for a later fresh session | B start latch | C tests passed; physical B check pending |
 | Visual correctness | Watch dot move with left stick; report only problems | Requires human eyes; telemetry cannot prove visible output | Passed: user confirmed correct and responsive |
 | Controller off/on | Turn controller off, wait for next cue, turn it on normally | Disconnect/reconnect events, new reports | Passed: existing bond reused, encryption and input recovered; user confirmed display |
-| Board restart persistence | Reset micro:bit, then press either front button with controller on | New boot, retained bond, encrypted reconnect without pairing | Unverified: LED reflash session performed fresh pairing |
+| Board restart persistence | Reset micro:bit, then press either front button with controller on | New boot, retained bond, encrypted reconnect without pairing | Passed: A detected first, bond resolved, re-encryption and new input; zero new pairings |
 | Second controller | First controller off; second in pairing mode, start fresh session | Identity distinction, pairing, input coverage | Pending |
 | Motor commissioning | Separate controlled bench setup and measured steering limits | Separate implementation and review | Not authorized by these diagnostic starts |
 
