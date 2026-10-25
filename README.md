@@ -44,6 +44,8 @@ and live firmware readiness heartbeat passed. Either front button starts scannin
 A physical A-button start, Xbox pairing, control coverage and sampled neutral return
 have passed; disconnect/reconnect and bond persistence remain untested. See
 [container validation](docs/bluepad-container-validation.md).
+The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
+the [minimal-input bench runsheet](docs/xbox-bench-runsheet.md).
 
 The MakeCode `car` project still selects the motor-stopped receiver investigation,
 described in [docs/receiver-investigation.md](docs/receiver-investigation.md).

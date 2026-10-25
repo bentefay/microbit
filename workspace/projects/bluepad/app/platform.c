@@ -4,6 +4,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h>
 #include "start_gate.h"
+#include "joystick_matrix.h"
 
 static const struct gpio_dt_spec buttons[] = {
     GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios),
@@ -14,6 +15,8 @@ static start_gate_t gate;
 static bool bluetooth_ready, buttons_ready, device_ready;
 static uint32_t reports, last_heartbeat, last_printed;
 static unsigned start_button;
+static bool matrix_ready;
+static uint32_t matrix_updates;
 static const char *state(void) {
     if (!buttons_ready) return "button-error";
     if (!bluetooth_ready) return "initializing";
@@ -34,6 +37,7 @@ static void tick(btstack_timer_source_t *source) {
     if ((uint32_t)(now - last_heartbeat) >= 1000) {
         last_heartbeat = now;
         printk("BP_STATUS,1,%u,%s,%u,%u\n", now, state(), start_button, reports);
+        printk("BP_DISPLAY,%u,%u,%u\n", now, matrix_ready, matrix_updates);
     }
     btstack_run_loop_set_timer(source, 20);
     btstack_run_loop_add_timer(source);
@@ -41,6 +45,7 @@ static void tick(btstack_timer_source_t *source) {
 static void platform_init(int argc, const char **argv) {
     (void)argc; (void)argv;
     uni_bt_service_set_enabled(false);
+    matrix_ready = joystick_matrix_init();
     buttons_ready = true;
     for (unsigned i = 0; i < 2; i++) {
         if (!gpio_is_ready_dt(&buttons[i]) || gpio_pin_configure_dt(&buttons[i], GPIO_INPUT) < 0)
@@ -59,6 +64,7 @@ static void platform_ready(void) {
 static void connected(uni_hid_device_t *d) { logi("Connected: %p\n", d); }
 static void disconnected(uni_hid_device_t *d) {
     device_ready = false;
+    joystick_matrix_clear();
     printk("BP_DISCONNECTED,%u\n", btstack_run_loop_get_time_ms());
 }
 static uni_error_t ready(uni_hid_device_t *d) {
@@ -72,10 +78,15 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     // Unbuffered 115200-baud logging must not monopolize the HCI run-loop thread.
     if (ctl->klass != UNI_CONTROLLER_CLASS_GAMEPAD) return;
     reports++;
+    const uni_gamepad_t *g = &ctl->gamepad;
+    // Display every received report BEFORE the serial snapshot rate limit.
+    if (matrix_ready) {
+        joystick_matrix_update(g->axis_x, g->axis_y);
+        matrix_updates++;
+    }
     uint32_t now = btstack_run_loop_get_time_ms();
     if (reports > 1 && (uint32_t)(now - last_printed) < 100) return;
     last_printed = now;
-    const uni_gamepad_t *g = &ctl->gamepad;
     printk("BP_INPUT,%u,%u,%d,%d,%d,%d,%d,%d,%u,%u,%u\n", now, reports,
            g->axis_x, g->axis_y, g->axis_rx, g->axis_ry, g->brake, g->throttle,
            g->buttons, g->dpad, g->misc_buttons);

@@ -25,7 +25,7 @@ list(APPEND BT_SOURCES
 file(GLOB BP_SOURCES ${BP}/*.c ${BP}/bt/*.c ${BP}/controller/*.c ${BP}/parser/*.c)
 list(REMOVE_ITEM BP_SOURCES ${BP}/bt/uni_bt_bredr.c ${BP}/bt/uni_bt_sdp.c ${BP}/uni_gpio.c ${BP}/uni_mouse_quadrature.c)
 list(APPEND BP_SOURCES ${BP}/platform/uni_platform.c ${BP}/arch/uni_property_btstack_tlv.c)
-target_sources(app PRIVATE main.c platform.c shims.c ${BP_SOURCES} ${BT_SOURCES})
+target_sources(app PRIVATE main.c platform.c shims.c joystick_matrix.c ${BP_SOURCES} ${BT_SOURCES})
 # Upstream uses ptrdiff_t without including its defining header. Newlib exposed
 # it transitively; Picolibc does not. Supply the standard header for that file.
 set_source_files_properties(${BP}/uni_hid_device.c PROPERTIES COMPILE_OPTIONS "-include;stddef.h")

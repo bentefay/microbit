@@ -1,5 +1,24 @@
 # Bluepad container integration validation
 
+## Left-stick matrix update
+
+Added the previous moving-dot display to the native diagnostic using the pinned
+Nordic matrix driver's brightness framebuffer. Every input callback updates it
+before serial snapshot throttling. Nominal scan refresh is 50 Hz; no smoothing or
+additional display delay is introduced. The display is blank until input arrives
+and clears on a reported disconnect. See the [bench runsheet](xbox-bench-runsheet.md).
+
+Validation: 48 CLI tests passed (657 assertions). Packet, button-gate and new
+joystick-frame C tests passed with ASan/UBSan in the offline container. The native
+report-only build passed its existing artifact checks, using 244332 bytes flash
+and 36104 bytes static RAM. Frame tests cover orientation, corners, center,
+intermediate brightness, extreme inputs and total brightness across a grid.
+
+Flashed at 06:25:44 UTC, same-device remount and no `FAIL.TXT`. HEX SHA-256:
+`a7d3c2e97f55781ab8de2edd16c1351eba5edcb02f20c3defeca56f82409e559`.
+The ongoing capture observed the new boot, `waiting` heartbeats and display-ready
+telemetry. Physical LED output and reconnection remain to be observed for this build.
+
 ## Button-gated monitoring update
 
 Later on 2026-10-25, added `run bluepad monitor` and a firmware start gate. The

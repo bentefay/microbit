@@ -1,5 +1,24 @@
 # Experimental Xbox BLE input on micro:bit V2
 
+## Left-stick LED display
+
+The 5×5 matrix shows the left-stick position with the same bilinearly blended
+moving dot as the MakeCode project's default display. Up on the Xbox stick maps
+to the top row. Raw axes are normalized from -512..511, without smoothing or a
+dead zone; small center offsets are visible as neighbouring LED brightness.
+There is no fixed center marker. The screen stays blank before input arrives and
+clears on a reported controller disconnect. A/B still start the diagnostic; they
+do not change the displayed stick.
+
+Every parsed gamepad report updates the matrix before the 10 Hz serial limiter.
+The pinned Nordic display driver refreshes independently at the board's 50 Hz
+setting (nominal 20 ms scan). We use its exposed 25-byte brightness framebuffer;
+driver compatibility and dimensions are compile-time checked. Copying a new frame
+does not disable interrupts or wait for a scan; a scan may span two frame updates.
+This is visual feedback for judging lag, not a measurement of radio latency or
+physical LED onset. `BP_DISPLAY,time,ready,updates` reports driver initialization
+and how many input callbacks wrote the framebuffer. It cannot confirm visible LEDs.
+
 This is the report-only Bluepad32 + BTstack + Zephyr port from
 `Eli-controller-build-investigation-2026-10-25/eli-controller-source/microbit-bluepad-source`.
 It replaces the MakeCode application when explicitly flashed. It does not replace

@@ -72,6 +72,7 @@ export async function bluepad(root: string, args: string[], command: Command, va
       `const fs = require('node:fs');
        const path = fs.realpathSync(process.argv[1]);
        if (!path.startsWith('/opt/bluepad/')) throw new Error('Inspect only Bluepad image sources');
+       if (fs.statSync(path).isDirectory()) { console.log(fs.readdirSync(path).join('\\n')); process.exit(0); }
        const lines = fs.readFileSync(path, 'utf8').split('\\n');
        lines.forEach((line, i) => { if (!process.argv[2] || line.includes(process.argv[2])) console.log((i + 1) + ': ' + line); });`,
       ...flags]);
@@ -146,12 +147,12 @@ export async function bluepad(root: string, args: string[], command: Command, va
   const imageId = metadata.Id;
   const run = (argv: string[], capture = false) => command(['docker', 'run', ...bluepadArgs(root, output), imageId, ...argv], capture);
   if (action === 'test') {
-    for (const name of ['nezha_packet', 'start_gate']) {
+    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame']) {
     await run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-g',
       '-I/app/app', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
     await run([`/build/test-${name}`]);
     }
-    console.log('Bluepad packet and start-button tests passed inside the offline container (ASan/UBSan).');
+    console.log('Bluepad packet, start-button and joystick-frame tests passed inside the offline container (ASan/UBSan).');
     return;
   }
   // Never leave a prior success receipt after a failed rebuild.

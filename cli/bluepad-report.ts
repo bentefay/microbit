@@ -2,7 +2,8 @@ export function bluepadReport(text: string) {
   const fresh = () => ({ state: 'unknown', button: 0, snapshots: 0,
     axes: Array.from({ length: 4 }, () => ({ min: Infinity, max: -Infinity })),
     triggers: [0, 0], buttons: 0, dpad: 0, neutralSince: null as number | null,
-    lastInputTime: null as number | null });
+    lastInputTime: null as number | null,
+    display: null as { ready: boolean; updates: number } | null });
   let result = fresh();
   let lastStatusTime = 0;
   for (const raw of text.split('\n')) {
@@ -19,6 +20,8 @@ export function bluepadReport(text: string) {
       result.state = p[3];
       result.button = Number(p[4]);
     }
+    if (p[0] === 'BP_DISPLAY' && p.length === 4 && p.slice(1).every(x => /^\d+$/.test(x)) &&
+      ['0', '1'].includes(p[2])) result.display = { ready: p[2] === '1', updates: Number(p[3]) };
     if (p[0] !== 'BP_INPUT' || p.length !== 12 || !p.slice(1).every(x => /^-?\d+$/.test(x))) continue;
     const n = p.slice(1).map(Number);
     result.snapshots++;

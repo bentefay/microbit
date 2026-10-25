@@ -18,3 +18,9 @@ test('missing input time cannot establish a continuous neutral return', () => {
   expect(report.checks.returnedToNeutral).toBe(false);
   expect(report.snapshots).toBe(2);
 });
+test('display readiness and update counts come from firmware, and reset with it', () => {
+  const log = lines('BP_STATUS,1,1000,connected,1,100', 'BP_DISPLAY,1000,1,100');
+  expect(bluepadReport(log).display).toEqual({ ready: true, updates: 100 });
+  expect(bluepadReport(log + '\n' + lines('BP_STATUS,1,10,waiting,0,0')).display).toBeNull();
+  expect(bluepadReport(lines('BP_DISPLAY,1000,0,0')).display?.ready).toBe(false);
+});
