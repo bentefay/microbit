@@ -53,6 +53,34 @@ experimental; compilation does not establish pairing or reliable input.
 
 ## Container workflow
 
+### Finite loose-motor variant
+
+`run build bluepad --motor-bench` builds a separate `built/motor-bench` artifact.
+`run flash bluepad --motor-bench --confirm` explicitly selects it. Default builds
+and flashes still select the motor-free report-only variant; compile-only adapter
+artifacts cannot be flashed. The bench retains Xbox connections, LED input and
+blue A override, but joystick positions do not command motors in this stage.
+
+With free, secured motor shafts (no wheels or steering linkage), front micro:bit
+A or B starts one automatic sequence per boot: stop M1/M2, wait three seconds,
+then M1 clockwise/counterclockwise and M2 clockwise/counterclockwise. Each request
+is a finite relative 20 degrees at 15 percent, followed by an extra stop at one
+second and a one-second pause. The controller receives the finite target itself;
+there is no continuous-speed command, homing or assumed steering calibration.
+A+B requests abort; power-off remains available. No motor writes occur at boot.
+I2C errors end the sequence and attempt both stops, with no automatic retry.
+
+The packet encoding matches pinned `pxt-nezha2` commit
+`1f37a92026cc53197fce86eb7c0e330caf9bb864`, functions `setServoSpeed`, `__move`,
+and `stop`. I2C runs in its own thread, on external P19/P20 at address 0x10.
+The Zephyr transfer timeout is configured to 100 ms; only that thread uses the
+external bus. This is not a measured emergency-stop bound. `BP_MOTOR` records
+device uptime, stage, step (1–4) and I2C result; heartbeats retain the final result.
+The monitor shows these stages and stores them in `bluepad-live.json`. I2C success
+is command delivery evidence; the user confirms actual movement and stopping.
+
+### Build commands
+
 From the repository root:
 
 ```sh

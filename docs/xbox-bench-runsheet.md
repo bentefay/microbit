@@ -2,7 +2,24 @@
 
 The assistant prepares code, tests, builds, authorized flashing and continuous
 monitoring before requesting physical actions. Builds and flashing remain separate.
-Motors stay disconnected throughout these diagnostic stages.
+Motors stay disconnected for controller-only stages. The separately authorized
+loose-motor stage below uses connected, secured free shafts.
+
+## Native loose-motor sequence
+
+Ben authorized the motor test and confirmed both motors remain loose, secured,
+clear of hands/objects, with the Nezha power switch accessible. No steering linkage
+is attached, so this stage does not require or establish chassis steering limits.
+Use `run build bluepad --motor-bench`, then explicitly
+`run flash bluepad --motor-bench --confirm`. Monitor readiness before the action cue.
+
+One front micro:bit A or B press starts all four steps: M1 clockwise and reverse,
+then M2 clockwise and reverse, 20 degrees each at 15 percent. The sequence stops
+between moves and ends permanently until reset. A+B aborts. Capture `BP_MOTOR`
+stages and ask for one combined physical confirmation of both movements/stopping.
+Xbox inputs still show on the matrix but do not drive these automatic motor steps.
+Physical result pending. After this check, the next implementation is Xbox-driven
+motor control; the earlier MakeCode motor control is not linked into this native app.
 
 ## Two-controller extension
 

@@ -33,6 +33,14 @@ target_include_directories(app PRIVATE . ${BP}/include ${BT}/src ${BT}/platform/
 target_compile_options(app PRIVATE -Wno-unused-function -Wno-unused-variable)
 
 option(ENABLE_NEZHA_ADAPTER "Compile/link the uninvoked Nezha I2C adapter" OFF)
+option(ENABLE_MOTOR_BENCH "Button-started finite loose-motor sequence" OFF)
+if(ENABLE_MOTOR_BENCH)
+ if(ENABLE_NEZHA_ADAPTER)
+  message(FATAL_ERROR "Choose motor bench or compile-only adapter, not both")
+ endif()
+ target_sources(app PRIVATE motor_bench.c)
+ target_compile_definitions(app PRIVATE ENABLE_MOTOR_BENCH=1)
+endif()
 if(ENABLE_NEZHA_ADAPTER)
  target_sources(app PRIVATE nezha_adapter.c)
  # Retain the primitive for link verification. This does NOT call the function.

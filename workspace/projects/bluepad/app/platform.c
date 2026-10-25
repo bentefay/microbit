@@ -1,4 +1,4 @@
-// Experimental report-only micro:bit port. No motor or servo output exists here.
+// Default: report-only. Explicit motor-bench build adds a finite front-button sequence.
 #include <uni.h>
 #include <bt/uni_bt_service.h>
 #include <zephyr/drivers/gpio.h>
@@ -6,6 +6,9 @@
 #include "start_gate.h"
 #include "joystick_matrix.h"
 #include "display_owner.h"
+#ifdef ENABLE_MOTOR_BENCH
+#include "motor_bench.h"
+#endif
 
 BUILD_ASSERT(BUTTON_A == 1u, "Override toggle must match Bluepad32's A button");
 
@@ -48,6 +51,10 @@ static void draw_owner(void) {
 }
 static void tick(btstack_timer_source_t *source) {
     uint32_t now = btstack_run_loop_get_time_ms();
+#ifdef ENABLE_MOTOR_BENCH
+    if (buttons_ready && gate.started && gpio_pin_get_dt(&buttons[0]) > 0 &&
+        gpio_pin_get_dt(&buttons[1]) > 0) motor_bench_abort();
+#endif
     if (buttons_ready && bluetooth_ready && !gate.started) {
         int a = gpio_pin_get_dt(&buttons[0]);
         int b = gpio_pin_get_dt(&buttons[1]);
@@ -55,6 +62,10 @@ static void tick(btstack_timer_source_t *source) {
         else if ((start_button = start_gate_update(&gate, now, (a ? 1 : 0) | (b ? 2 : 0)))) {
             printk("BP_START,%u,%u\n", now, start_button);
             uni_bt_start_scanning_and_autoconnect_unsafe();
+#ifdef ENABLE_MOTOR_BENCH
+            if (start_button == 3) motor_bench_abort();
+            motor_bench_start();
+#endif
         }
     }
     if ((uint32_t)(now - last_heartbeat) >= 1000) {
@@ -62,6 +73,9 @@ static void tick(btstack_timer_source_t *source) {
         printk("BP_STATUS,1,%u,%s,%u,%u\n", now, state(), start_button, reports);
         printk("BP_DISPLAY,%u,%u,%u\n", now, matrix_ready, matrix_updates);
         priority();
+#ifdef ENABLE_MOTOR_BENCH
+        motor_bench_status();
+#endif
         for (int i = 0; i < 2; i++) if (display_state.pad[i].online) {
             uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(i);
             printk("BP_SLOT,%u,%d,%s,%u,%u\n", now, i, bd_addr_to_str(d->conn.btaddr), pad_reports[i], both_updates[i]);

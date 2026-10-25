@@ -1,6 +1,22 @@
 import { expect, test } from 'bun:test';
 import { BluepadMonitor } from './bluepad-monitor';
 
+test('finite motor state survives missed events, exposes failure and resets on reboot', () => {
+  const m = new BluepadMonitor();
+  m.push('BP_STATUS,1,10000,waiting,0,0', 0);
+  expect(m.push('BP_MOTOR,10000,waiting,0,0', 1)).toContain('MOTOR BENCH READY');
+  expect(m.push('BP_MOTOR,11000,move,1,0', 2)).toContain('step 1/4');
+  expect(m.push('BP_MOTOR,12000,move,1,0', 3)).toBeUndefined();
+  m.push('BP_MOTOR,13000,done,4,0', 4);
+  expect(m.motor?.state).toBe('done');
+  m.push('BP_MOTOR,14000,fault,2,-5', 5);
+  expect(m.motor?.result).toBe(-5);
+  m.push('BP_MOTOR,15000,done,9,0', 6);
+  expect(m.motor?.state).toBe('fault');
+  m.push('BP_STATUS,1,1000,waiting,0,0', 7);
+  expect(m.motor).toBeNull();
+});
+
 test('USB open and elapsed human response time never start a session', () => {
   const m = new BluepadMonitor();
   expect(m.push('BP_MONITOR_OPEN', 0)).toBeUndefined();

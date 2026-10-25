@@ -1,5 +1,33 @@
 # Bluepad container integration validation
 
+## Native finite loose-motor bench
+
+Ben requested motor testing, confirmed secured loose shafts with no wheels/linkage
+and an accessible Nezha power switch, and asked for minimal physical test rounds.
+The `--motor-bench` variant combines four finite 20-degree/15-percent requests
+(M1 CW/CCW, M2 CW/CCW) into one front-button-started run, with intervening stops.
+It performs no I2C writes before that press and cannot repeat without reboot.
+Xbox input/override remains available for the matrix, not motor commands yet.
+
+Packet encodings were checked against the locally pinned vendor source via
+`run inspect /workspace/projects/car/pxt_modules/pxt-nezha2/main.ts`. The separate
+Zephyr motor thread owns the external I2C bus; the pinned TWIM implementation and
+Kconfig were inspected with `run bluepad inspect`. Transfer timeout is 100 ms.
+I2C failures stop the sequence and attempt both stops; A+B requests cancellation.
+No software stop-time bound or loaded steering performance is claimed.
+
+Validation: 55 CLI tests / 703 assertions passed. Six native C suites passed under
+ASan/UBSan, including all four finite packets, command ordering, failures injected
+at every write and cancellation at every wait. Explicit flash variant checks reject
+accidental bench selection and the compile-only adapter. Both native builds passed:
+default report-only remains motor-free at 246256 B flash / 50872 B static RAM;
+motor bench is 247464 B flash / 52776 B RAM. Bench HEX SHA-256:
+`255f57c7efab503eea5b8caeb645033bddf84ea232eb30a2dd83aa62f7f2e61d`.
+Flashed at 07:48:36 UTC, same-device remount with no `FAIL.TXT`. Fresh waiting
+heartbeats and `BP_MOTOR` waiting/step 0/result 0 confirm the start gate is pending.
+Physical result pending. Capture:
+`.cache/observations/2026-10-25T07-48-39-291Z-bluepad-session-7f6ae58f.jsonl`.
+
 ## Blue-controller A-button override
 
 Blue Xbox address `5C:BA:37:DD:D9:6C` is the only identity allowed to toggle

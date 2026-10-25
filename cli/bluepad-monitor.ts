@@ -10,6 +10,7 @@ export class BluepadMonitor {
   reports = 0;
   lastStatusAt: number | null = null;
   lastInput: number[] | null = null;
+  motor: { state: string; step: number; result: number; deviceMs: number } | null = null;
   private uptime = 0;
   private sawStart = false;
   dual = new DualPads();
@@ -17,6 +18,16 @@ export class BluepadMonitor {
     const dualNotice = this.dual.push(line);
     if (dualNotice) return dualNotice;
     const p = line.split(',');
+    if (p[0] === 'BP_MOTOR' && p.length === 5 && /^\d+$/.test(p[1]) &&
+      ['waiting', 'countdown', 'move', 'stop', 'done', 'fault', 'aborted'].includes(p[2]) &&
+      /^[0-4]$/.test(p[3]) && /^-?\d+$/.test(p[4])) {
+      const changed = this.motor?.state !== p[2] || this.motor?.step !== Number(p[3]);
+      this.motor = { state: p[2], step: Number(p[3]), result: Number(p[4]), deviceMs: Number(p[1]) };
+      if (changed) return p[2] === 'waiting'
+        ? 'MOTOR BENCH READY: one front A or B press starts the finite M1/M2 sequence. Loose motors only; A+B requests abort.'
+        : `MOTOR BENCH: ${p[2]}, step ${p[3]}/4, I2C result ${p[4]}. Physical motion/stopping needs visual confirmation.`;
+      return;
+    }
     const before = this.state;
     if (p[0] === 'BP_STATUS' && p.length === 6 && p[1] === '1' &&
       ['initializing', 'button-error', 'waiting', 'scanning', 'connected'].includes(p[3]) &&
@@ -25,6 +36,7 @@ export class BluepadMonitor {
       if (uptime < this.uptime || p[3] === 'waiting') {
         this.lastInput = null;
         this.sawStart = false;
+        if (uptime < this.uptime) this.motor = null;
       }
       this.uptime = uptime;
       this.lastStatusAt = hostMs;
@@ -88,7 +100,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

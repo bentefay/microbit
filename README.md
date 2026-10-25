@@ -38,9 +38,12 @@ movement/aim split in FPS controls. Returning the steering stick to center shoul
 request the measured straight-ahead position. It must not merely stop a steering
 motor wherever it happens to be.
 
-**Currently flashed (2026-10-25): experimental Bluepad32 Xbox BLE report-only
-firmware**, with no motor adapter linked. Container builds, the DAPLink transfer
-and live firmware readiness heartbeat passed. Either front button starts scanning.
+**Currently flashed (2026-10-25): experimental Bluepad32 Xbox BLE finite loose-motor
+bench firmware.** Either front micro:bit button starts scanning and one automatic
+M1 forward/reverse, M2 forward/reverse sequence (20° each at 15%, with stops).
+It waits motionless at boot. This is the explicit `--motor-bench` variant; the
+default report-only firmware remains motor-free. Native motor results are pending.
+Container builds, DAPLink transfer and live firmware readiness heartbeat passed.
 A physical A-button start, Xbox pairing, control coverage and sampled neutral return
 have passed. Controller power-cycle recovery and saved-pairing recovery after a
 micro:bit restart also passed. See
@@ -55,7 +58,8 @@ the shared latest-movement behavior; override on accepts only blue input. The ro
 follows blue's saved Bluetooth identity, not connection order. If blue disconnects
 during override, the matrix clears until it returns; a board reset starts shared
 mode. This update is flashed and passed automated tests and the physical override
-toggle/shared-control check, confirmed by Ben. It remains LED-only, with no motor control.
+toggle/shared-control check, confirmed by Ben. Xbox sticks still control only the
+matrix; the finite motor sequence is independent of joystick/override input.
 A slower initial report cadence on the
 second improved after normal reconnection; its cause is still under investigation.
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
