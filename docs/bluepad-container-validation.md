@@ -38,7 +38,14 @@ recovery checks also passed in both directions: each identity's connection count
 reached two, both used their saved bonds to re-encrypt, the other link stayed up,
 and each regained display control. The user confirmed both worked perfectly.
 Solo-input snapshots were also recorded from the first during the second's absence.
-Both-off recovery remains pending. New capture:
+Both-off recovery also passed: capture times 515.2 s (zero links, owner -1),
+520.9 s (first ready again), and 522.5 s (both ready again) show recovery without a
+board restart or another A/B press. Both identities resolved their saved bonds and
+re-encrypted, then supplied input and drove the display. The user confirmed the
+check worked. The controllers were subsequently switched off again; the final
+zero-link state is expected, not a failure of that recovery. The complete report
+is saved locally as `.cache/observations/bluepad-dual-complete-result.json`.
+New capture:
 `.cache/observations/2026-10-25T06-50-55-316Z-bluepad-session-8e130e25.jsonl`.
 
 ## Both bonds retained; report cadence comparison

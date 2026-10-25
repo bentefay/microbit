@@ -48,7 +48,8 @@ micro:bit restart also passed. See
 Both Xbox controllers passed input checks and retain their saved pairings across
 restart. The latest diagnostic supports two concurrent controllers, with left-stick
 movement selecting which controls the matrix. Both simultaneous control and
-independent off/on recovery have passed physical testing.
+independent off/on recovery have passed physical testing, including recovery after
+both controllers are switched off together.
 A slower initial report cadence on the
 second improved after normal reconnection; its cause is still under investigation.
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow

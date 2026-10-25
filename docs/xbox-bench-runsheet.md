@@ -18,7 +18,7 @@ falls back to the remaining controller's most recent input; losing both clears i
 | Concurrent input and handover | Both on, front button once, move each left stick in turn | Mask 3, distinct identities, both per-pad display-write counters increase | Passed: B start, two active links; 522 and 441 concurrent display writes at checkpoint |
 | First off/on | First off; move second; first on normally and move its stick | Second remains connected; first reconnects and controls display | Passed: saved-bond re-encryption, unchanged second connection; user confirmed |
 | Second off/on | Second off; move first; second on normally and move its stick | First remains connected and reports input; second reconnects | Passed: solo input from first, saved-bond re-encryption for second; user confirmed |
-| Both off/on | Both off; then both on normally | Mask 0/owner -1, then mask 3 and fresh input without another front-button press | Pending |
+| Both off/on | Both off; then both on normally | Mask 0/owner -1, then mask 3 and fresh input without another front-button press | Passed: both saved bonds reused, input/display ownership recovered; user confirmed |
 
 `run bluepad dual-report CAPTURE.jsonl` tracks each controller separately. Slot
 numbers follow connection order and are not permanent controller identities.
