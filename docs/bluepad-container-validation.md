@@ -19,9 +19,9 @@ Flashed at 06:25:44 UTC, same-device remount and no `FAIL.TXT`. HEX SHA-256:
 The ongoing capture observed the new boot, `waiting` heartbeats and display-ready
 telemetry. A physical A-button start then connected the same controller. Its
 left X/Y axes each reached -512..511, returned to neutral, and the display counter
-recorded 1658 input-driven framebuffer updates at the checkpoint. This confirms
-the software display path; visible LED correctness and perceived lag require the
-user's observation. The connection performed fresh pairing, so this run does not
+recorded 1658 input-driven framebuffer updates at the checkpoint. The user then
+confirmed the visible dot was correct and responsive. This is a passed visual
+feedback check, not a numerical latency measurement. The connection performed fresh pairing, so this run does not
 prove retained-bond reconnection.
 
 ## Button-gated monitoring update
