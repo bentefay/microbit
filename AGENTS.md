@@ -1,5 +1,9 @@
 # Working agreements
 
+- Start with [agent handover](docs/agent-handover.md) and the canonical
+  [hardware inventory](docs/hardware.md). Keep them current when behavior or
+  hardware changes; historical test logs may describe superseded firmware.
+
 - Run tooling through `run` (or `cli/bin/run` before direnv is allowed).
 - Host orchestration, diagnostics and tests belong in the TypeScript CLI.
 - No ad hoc /tmp scripts, downloaded executable helpers, or unmanaged installs.
@@ -10,4 +14,5 @@
 - Never claim controller radio-loss detection from receiver readiness alone.
 - Never call vendor PS2 reads in a timing-critical loop: their readiness loops
   have no timeout. Keep commissioning firmware motionless until calibration.
-- The user pushes to GitHub. Do not create remote repos or push automatically.
+- Do not create remote repos or push automatically. Push to the existing remote
+  when explicitly requested by the user; otherwise leave local commits for them.

@@ -238,7 +238,7 @@ const help = `micro:bit workspace — run COMMAND
   image bluepad                Download pinned Zephyr/Bluepad sources and tools into Docker
   build bluepad [--nezha-compile-only|--motor-bench|--motor-drive]  Offline native build; never flashes
   bluepad test|versions|lock-system    Container packet tests / tool versions / Debian lock
-  bluepad monitor              Continuous capture; wait for micro:bit A/B start signal
+  bluepad monitor              Continuous capture of automatic connection, input and motor state
   bluepad monitor-stop         Stop only this repository's serial monitor container
   bluepad dual-report FILE     Verify two concurrent controllers and LED ownership
   bluepad report FILE          Summarize captured input coverage and neutral return

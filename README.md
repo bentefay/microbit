@@ -2,8 +2,12 @@
 
 A reusable Linux workspace: Bun/TypeScript `run` CLI, a Nix/devenv shell,
 containerized MakeCode/PXT and native ARM compiler, and projects under
-`workspace/projects/`. The first project is `car`. This repository has no GitHub
-remote; Ben will publish it.
+`workspace/projects/`. The first project is `car`. The GitHub repository is
+[`bentefay/microbit`](https://github.com/bentefay/microbit).
+
+Start with the [hardware inventory](docs/hardware.md) and
+[agent handover](docs/agent-handover.md) for current wiring, controller identities,
+firmware behavior, tested results and continuation instructions.
 
 ## Hardware and current state
 
@@ -12,7 +16,8 @@ remote; Ben will publish it.
 | Expansion board | ELECFREAKS **Nezha Pro**, with rechargeable battery |
 | Computer | BBC **micro:bit V2.2**, bought from ELECFREAKS |
 | Motors | Two PlanetX **Smart Brick Motors**, LEGO-compatible with feedback |
-| Remote | PlanetX **PS2 Joystick Kit**, physical wireless gamepad and receiver/adapter |
+| Current remotes | Two Xbox BLE controllers: blue = Ben/override, gray-orange = Eli |
+| Original remote | PlanetX **PS2 Joystick Kit**, physical wireless gamepad and receiver/adapter |
 | Accessories | RJ11 4P4C cables, micro:bit case, micro-USB cable |
 
 The Nezha's onboard buttons have run both motors in both directions. They work
@@ -25,7 +30,8 @@ The receiver was initially connected to a motor port; Ben subsequently confirmed
 it is connected to **IIC**, and inputs have been logged. Do not connect it to M1–M4.
 
 The current loose-motor bench wiring is M1 = intended wheel drive, M2 = intended
-steering, and receiver = IIC. This is **one drive motor plus one steering motor**,
+steering. The PS2 receiver's last confirmed port was IIC; current Xbox firmware
+uses direct BLE and does not require it. This is **one drive motor plus one steering motor**,
 not tank steering.
 Chassis, wheels, gearing, linkage, center, travel, direction and weight are unknown.
 Never find steering limits by driving into a mechanical stop.

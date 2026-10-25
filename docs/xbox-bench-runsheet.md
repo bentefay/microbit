@@ -97,13 +97,14 @@ The earlier single-connection checks below are historical baseline evidence.
 ## Session procedure
 
 1. Prepare and verify the firmware; start `run bluepad monitor`.
-2. Observe a fresh `waiting` heartbeat. For LED checks also verify
+2. Observe a fresh firmware heartbeat (normally `scanning` or `connected`). For LED checks also verify
    `BP_DISPLAY` reports ready. Do not infer readiness from USB presence alone.
-3. Send one visible action card with the complete physical sequence. The user
-   starts by pressing/releasing micro:bit A or B; no typed confirmation is needed.
+3. If physical actions are needed, send one visible action card with the complete
+   sequence; no typed confirmation is needed. Ordinary firmware auto-connects.
+   Only the finite motor-bench sequence requires a micro:bit A or B start press.
 4. Keep monitoring while the assistant turn is active. Human response time has no
-   test deadline. Firmware starts scanning once per boot and retains the start
-   button in its heartbeat, so a missed serial instant does not lose the signal.
+   test deadline. Firmware retains its start mode in the heartbeat (zero for
+   automatic), so a missed serial instant does not lose that information.
 5. Evaluate captured evidence and request only the missing physical observations.
    Save the result before moving to the next stage. Do not rebuild or repeat passed
    actions unless a change or failure warrants it.
