@@ -6,11 +6,23 @@ The 5×5 matrix shows the left-stick position with the same bilinearly blended
 moving dot as the MakeCode project's default display. Up on the Xbox stick maps
 to the top row. Raw axes are normalized from -512..511, without smoothing or a
 dead zone; small center offsets are visible as neighbouring LED brightness.
-There is no fixed center marker. The screen stays blank before input arrives and
-clears on a reported controller disconnect. A/B still start the diagnostic; they
-do not change the displayed stick.
+There is no fixed center marker. Up to two controllers can stay connected. Moving
+either left stick takes display ownership; idle jitter from the other cannot
+steal it. Ownership requires at least 64 raw units of change from its last motion
+anchor and at least 96 units of deflection on either axis. These thresholds only
+select the owner: its displayed position remains unfiltered. Simultaneous deliberate
+movement uses the last qualifying report. Returning the owner's stick to center
+keeps ownership. A/B start the diagnostic once per boot, not per connection.
 
-Every parsed gamepad report updates the matrix before the 10 Hz serial limiter.
+If the owner disconnects, the display falls back to the other controller's latest
+input; if no input-capable controller remains it clears. Disconnecting the other
+controller leaves the owner's display alone. Either can reconnect automatically
+using its stored bond without another button press. Initial connection setup is
+serialized because the upstream Device Information Service client is a singleton;
+completed HID links remain active concurrently. No vendor source is patched.
+
+Every parsed report from the display owner updates the matrix before serial
+throttling (five snapshots/second per controller, ten total).
 The pinned Nordic display driver refreshes independently at the board's 50 Hz
 setting (nominal 20 ms scan). We use its exposed 25-byte brightness framebuffer;
 driver compatibility and dimensions are compile-time checked. Copying a new frame
@@ -94,17 +106,24 @@ run bluepad monitor
 ```
 
 The continuous monitor has no human-response timeout. Once a live `waiting`
-heartbeat is observed, put one controller into pairing mode and press/release
-either front micro:bit button (A or B). The firmware requires a stable release
+heartbeat is observed, turn on the controllers and press/release either front
+micro:bit button (A or B). Use Pair only when a new pairing is needed.
+The firmware requires a stable release
 before accepting a press, debounces for 40 ms, and begins scanning only once per
 boot. A button held during startup does not count. Reset the board for a new run.
 Button readiness starts a motionless diagnostic; it never authorizes motors.
 
 Firmware emits `BP_STATUS` every second with protocol version, device uptime,
 state, latched start-button mask (A=1, B=2) and total input-report count. The latch
-survives delayed opening of serial, but resets on reboot. `BP_INPUT` snapshots
-contain device time, report count, four axes, two triggers, buttons, D-pad and
-miscellaneous buttons, capped at ten per second. A status heartbeat proves loop
+survives delayed opening of serial, but resets on reboot. `BP_PAD` snapshots
+contain device time, slot (0/1), per-controller report count, four axes, two triggers,
+buttons, D-pad and miscellaneous buttons. `BP_PEERS` carries the connected bitmask
+and display owner (-1 means none); `BP_SLOT` identifies each connected controller
+and reports how often it updated the display while both were connected.
+`BP_READY`/`BP_GONE` identify individual connection events. Use
+`run bluepad dual-report CAPTURE.jsonl` to assess concurrent connections and
+ownership separately; legacy `report` and `timing` commands analyze the earlier
+single-controller `BP_INPUT` format. A status heartbeat proves loop
 liveness, not fresh controller radio input. Snapshots may omit brief button edges.
 
 The monitor saves all serial lines in `.cache/observations/*bluepad-session*.jsonl`
@@ -115,6 +134,8 @@ readiness unverified without ending the wait. The capture remains open until
 stopped or a transport error occurs; the agent must remain active to respond live.
 The monitor neither builds nor flashes. `run bluepad inspect PATH [TEXT]` reads
 pinned source files inside the native image for reproducible troubleshooting.
+`run bluepad monitor-stop` stops only this repository's serial transport container,
+allowing the monitor to be restarted after CLI changes without competing readers.
 
 Builds never flash. Flashing checks the verified report-only artifact and unchanged
 source, uses the existing device-correlated DAPLink transfer, then checks remount

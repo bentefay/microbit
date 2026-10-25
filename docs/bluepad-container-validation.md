@@ -1,5 +1,37 @@
 # Bluepad container integration validation
 
+## Two simultaneous controllers: implementation
+
+The native image now provisions two connections in Zephyr, BTstack and Bluepad32,
+with corresponding client pools and larger packet buffers. No upstream files were
+modified. A discovery callback serializes setup because the pinned Device
+Information Service client is a singleton. Once ready, both HID links stay active.
+
+The display owner is selected by deliberate left-stick motion (64-unit change
+from a motion anchor and 96-unit deflection). The owner's every report updates the
+unfiltered dot before the per-controller 5 Hz serial limiter. Idle reports cannot
+overwrite the other controller's dot. Disconnecting the owner selects the other
+controller's last known input; disconnecting both clears the display. Scan/reconnect
+continues after either disconnect, with the existing once-per-boot button gate.
+
+`BP_PAD`, `BP_READY`, `BP_GONE`, `BP_SLOT` and `BP_PEERS` keep the two devices'
+identities, reports, readiness and ownership distinct. `bluepad dual-report` also
+counts writes performed by each pad while both were ready, solo-input snapshots
+and reconnections by address. The monitor can be safely restarted through
+`bluepad monitor-stop`, scoped to this repo's mounted serial transport.
+
+Validation: 52 CLI tests passed (680 assertions). Packet, button, frame and
+ownership C tests passed with ASan/UBSan in Docker. Ownership tests cover idle
+jitter, slow deliberate motion, neutral return, loss of either owner/non-owner,
+fallback, losing both, rejoining and late reports from a disconnected slot.
+The build passed artifact checks: 245908 bytes flash, 50872 bytes static RAM.
+
+Flashed at 06:50:45 UTC; same-device remount, no `FAIL.TXT`, then live `waiting`
+heartbeats. HEX SHA-256:
+`a472ffb559ca26b5b9b66cf50276a299c2684f159027af765b4395bea7e23af5`.
+Hardware concurrency and independent recovery checks are pending. New capture:
+`.cache/observations/2026-10-25T06-50-55-316Z-bluepad-session-8e130e25.jsonl`.
+
 ## Both bonds retained; report cadence comparison
 
 After pairing the second controller, the user switched it off, restarted the

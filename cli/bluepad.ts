@@ -147,12 +147,12 @@ export async function bluepad(root: string, args: string[], command: Command, va
   const imageId = metadata.Id;
   const run = (argv: string[], capture = false) => command(['docker', 'run', ...bluepadArgs(root, output), imageId, ...argv], capture);
   if (action === 'test') {
-    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame']) {
+    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'display_owner']) {
     await run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-g',
       '-I/app/app', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
     await run([`/build/test-${name}`]);
     }
-    console.log('Bluepad packet, start-button and joystick-frame tests passed inside the offline container (ASan/UBSan).');
+    console.log('Bluepad packet, start-button, joystick-frame and display-owner tests passed inside the offline container (ASan/UBSan).');
     return;
   }
   // Never leave a prior success receipt after a failed rebuild.

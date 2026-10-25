@@ -4,6 +4,26 @@ The assistant prepares code, tests, builds, authorized flashing and continuous
 monitoring before requesting physical actions. Builds and flashing remain separate.
 Motors stay disconnected throughout these diagnostic stages.
 
+## Two-controller extension
+
+The current firmware supports two active links. A front-button press is required
+only once per micro:bit boot. Initial discovery/setup is serialized; ready links
+remain active together. After that, either controller may turn off/on without
+resetting the board or pressing its buttons again. Meaningful left-stick motion
+selects the display owner. Idle jitter does not steal ownership. Losing the owner
+falls back to the remaining controller's most recent input; losing both clears it.
+
+| Check | Physical action after readiness cue | Evidence | Status |
+| --- | --- | --- | --- |
+| Concurrent input and handover | Both on, front button once, move each left stick in turn | Mask 3, distinct identities, both per-pad display-write counters increase | Pending |
+| First off/on | First off; move second; first on normally and move its stick | Second remains connected and reports input; first reconnects | Pending |
+| Second off/on | Second off; move first; second on normally and move its stick | First remains connected and reports input; second reconnects | Pending |
+| Both off/on | Both off; then both on normally | Mask 0/owner -1, then mask 3 and fresh input without another front-button press | Pending |
+
+`run bluepad dual-report CAPTURE.jsonl` tracks each controller separately. Slot
+numbers follow connection order and are not permanent controller identities.
+The earlier single-connection checks below are historical baseline evidence.
+
 ## Session procedure
 
 1. Prepare and verify the firmware; start `run bluepad monitor`.

@@ -1,6 +1,7 @@
 import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { captureSerial } from './serial';
+import { DualPads } from './bluepad-dual';
 
 /** Device reports readiness; silence and host USB presence never imply readiness. */
 export class BluepadMonitor {
@@ -11,7 +12,10 @@ export class BluepadMonitor {
   lastInput: number[] | null = null;
   private uptime = 0;
   private sawStart = false;
+  dual = new DualPads();
   push(line: string, hostMs: number): string | undefined {
+    const dualNotice = this.dual.push(line);
+    if (dualNotice) return dualNotice;
     const p = line.split(',');
     const before = this.state;
     if (p[0] === 'BP_STATUS' && p.length === 6 && p[1] === '1' &&
@@ -28,7 +32,7 @@ export class BluepadMonitor {
       this.button = Number(p[4]);
       this.reports = Number(p[5]);
       if (this.state !== before) {
-        if (this.state === 'waiting') return 'READY: put one Xbox controller in pairing mode, then press and release micro:bit A or B. No chat reply needed.';
+        if (this.state === 'waiting') return 'READY: turn on the controller(s), then press/release micro:bit A or B. Use Pair only for a new pairing. No chat reply needed.';
         if (this.state === 'scanning') {
           this.lastInput = null;
           if (this.sawStart) return before === 'connected'
@@ -84,7 +88,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (line.startsWith('BP_STATUS,') || line.startsWith('BP_INPUT,')) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

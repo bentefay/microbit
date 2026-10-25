@@ -14,6 +14,7 @@ import { bluepad, bluepadInputHash, validateBluepadHex } from './bluepad';
 import { monitorBluepad } from './bluepad-monitor';
 import { bluepadReport } from './bluepad-report';
 import { bluepadTiming } from './bluepad-timing';
+import { bluepadDualReport } from './bluepad-dual';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -150,6 +151,16 @@ async function serial(seconds = '10', label = 'capture', continuous = false) {
     '--network', 'none', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--read-only',
     '--device', `${device}:/dev/microbit:rw`, image, 'serial', String(duration)], join(root, '.cache/observations'), label);
 }
+async function stopBluepadMonitor() {
+  const ids = (await command(['docker', 'ps', '-q'], true)).split(/\s+/).filter(Boolean);
+  if (!ids.length) return;
+  const containers = JSON.parse(await command(['docker', 'inspect', ...ids], true));
+  for (const c of containers) {
+    if (c.Path === 'node' && JSON.stringify(c.Args) === JSON.stringify(['/serial-transport.mjs']) &&
+      c.Mounts?.some((m: any) => m.Source === join(root, 'cli/serial-transport.mjs') && m.Destination === '/serial-transport.mjs'))
+      await command(['docker', 'stop', '--time', '2', c.Id]);
+  }
+}
 async function flash(project: string, confirmed: boolean) {
   if (!confirmed) throw new Error('Flashing starts the program. Use run flash PROJECT --confirm after arranging a controlled bench test.');
   const path = join(workspace, 'projects', projectName(project), 'built', ...(project === 'bluepad' ? ['report-only'] : []));
@@ -221,6 +232,8 @@ const help = `micro:bit workspace — run COMMAND
   build bluepad [--nezha-compile-only]  Offline native report-only build; never flashes
   bluepad test|versions|lock-system    Container packet tests / tool versions / Debian lock
   bluepad monitor              Continuous capture; wait for micro:bit A/B start signal
+  bluepad monitor-stop         Stop only this repository's serial monitor container
+  bluepad dual-report FILE     Verify two concurrent controllers and LED ownership
   bluepad report FILE          Summarize captured input coverage and neutral return
   bluepad timing FILE          Compare report cadence during sampled stick movement
   bluepad inspect PATH [TEXT]   Read pinned native source inside Docker
@@ -278,6 +291,8 @@ export async function main(args: string[]) {
         break;
       case 'bluepad':
         if (arg === 'monitor' && rest.length === 0) await serial('10', 'bluepad-session', true);
+        else if (arg === 'monitor-stop' && rest.length === 0) await stopBluepadMonitor();
+        else if (arg === 'dual-report' && rest.length === 1) console.log(JSON.stringify(bluepadDualReport(await readFile(resolve(rest[0]), 'utf8')), null, 2));
         else if (arg === 'report' && rest.length === 1) console.log(JSON.stringify(bluepadReport(await readFile(resolve(rest[0]), 'utf8')), null, 2));
         else if (arg === 'timing' && rest.length === 1) console.log(JSON.stringify(bluepadTiming(await readFile(resolve(rest[0]), 'utf8')), null, 2));
         else await bluepad(root, [arg, ...rest], command, validateHex);
