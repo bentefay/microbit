@@ -24,6 +24,11 @@ test('two identities and simultaneous display writes stay separate across slot r
   m.push('BP_READY,4000,0,AA:BB:CC:DD:EE:03');
   expect(m.pads[0].snapshots).toBe(0);
   expect(m.result().bothDroveDisplayWhileConnected).toBe(false);
+  m.push('BP_PEERS,4500,0,-1');
+  expect(m.result().emptyAfterBoth).toBe(true);
+  expect(m.result().recoveredAfterEmpty).toBe(false);
+  m.push('BP_PEERS,5000,3,1');
+  expect(m.result().recoveredAfterEmpty).toBe(true);
   m.push('*** Booting Zephyr OS ***');
   expect(m.everBoth).toBe(false); expect(m.pads).toEqual({});
 });

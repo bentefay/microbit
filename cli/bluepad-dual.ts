@@ -4,6 +4,8 @@ export class DualPads {
   mask = 0;
   owner = -1;
   everBoth = false;
+  emptyAfterBoth = false;
+  recoveredAfterEmpty = false;
   pads: Record<string, Pad> = {};
   masksSeen: number[] = [];
   connectionsByAddress: Record<string, number> = {};
@@ -13,6 +15,7 @@ export class DualPads {
     const p = line.split(',');
     if (line.includes('Booting Zephyr OS') || (p[0] === 'BP_STATUS' && /^\d+$/.test(p[2]) && Number(p[2]) < this.uptime)) {
       this.mask = 0; this.owner = -1; this.everBoth = false; this.pads = {}; this.uptime = 0;
+      this.emptyAfterBoth = false; this.recoveredAfterEmpty = false;
       this.masksSeen = []; this.connectionsByAddress = {}; this.soloSnapshotsByAddress = {};
     }
     if (p[0] === 'BP_STATUS' && /^\d+$/.test(p[2])) this.uptime = Number(p[2]);
@@ -22,6 +25,8 @@ export class DualPads {
       if (owner >= 0 && !(mask & (1 << owner))) return;
       const changed = this.mask !== mask;
       this.mask = mask; this.owner = owner; this.everBoth ||= mask === 3;
+      if (mask === 0 && this.everBoth) this.emptyAfterBoth = true;
+      if (mask === 3 && this.emptyAfterBoth) this.recoveredAfterEmpty = true;
       if (!this.masksSeen.includes(mask)) this.masksSeen.push(mask);
       if (changed) return `${Number(!!(mask & 1)) + Number(!!(mask & 2))} CONTROLLER(S) CONNECTED; LED owner: ${owner < 0 ? 'waiting for input' : owner + 1}.`;
     }
@@ -47,6 +52,7 @@ export class DualPads {
   }
   result() {
     return { mask: this.mask, owner: this.owner, everBoth: this.everBoth, pads: this.pads,
+      emptyAfterBoth: this.emptyAfterBoth, recoveredAfterEmpty: this.recoveredAfterEmpty,
       masksSeen: this.masksSeen, connectionsByAddress: this.connectionsByAddress,
       soloSnapshotsByAddress: this.soloSnapshotsByAddress,
       bothDroveDisplayWhileConnected: this.everBoth && ['0', '1'].every(i => (this.pads[i]?.updatesWhileBothConnected ?? 0) > 0),

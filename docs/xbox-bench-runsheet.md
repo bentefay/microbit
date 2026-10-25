@@ -15,9 +15,9 @@ falls back to the remaining controller's most recent input; losing both clears i
 
 | Check | Physical action after readiness cue | Evidence | Status |
 | --- | --- | --- | --- |
-| Concurrent input and handover | Both on, front button once, move each left stick in turn | Mask 3, distinct identities, both per-pad display-write counters increase | Pending |
-| First off/on | First off; move second; first on normally and move its stick | Second remains connected and reports input; first reconnects | Pending |
-| Second off/on | Second off; move first; second on normally and move its stick | First remains connected and reports input; second reconnects | Pending |
+| Concurrent input and handover | Both on, front button once, move each left stick in turn | Mask 3, distinct identities, both per-pad display-write counters increase | Passed: B start, two active links; 522 and 441 concurrent display writes at checkpoint |
+| First off/on | First off; move second; first on normally and move its stick | Second remains connected; first reconnects and controls display | Passed: saved-bond re-encryption, unchanged second connection; user confirmed |
+| Second off/on | Second off; move first; second on normally and move its stick | First remains connected and reports input; second reconnects | Passed: solo input from first, saved-bond re-encryption for second; user confirmed |
 | Both off/on | Both off; then both on normally | Mask 0/owner -1, then mask 3 and fresh input without another front-button press | Pending |
 
 `run bluepad dual-report CAPTURE.jsonl` tracks each controller separately. Slot
@@ -50,7 +50,7 @@ does not schedule the assistant to resume; live supervision requires an active t
 | First controller pairing | Pair mode, press A | Start latch, encryption/pairing/HID logs | Passed |
 | Input coverage | Sweep both sticks, squeeze triggers, press face buttons and D-pad, release | Ranges, button masks, sampled neutral return | Passed |
 | Left-stick LED feedback | Same controller on, press either button, move left stick | Start latch, connection, framebuffer update count | Passed via A; both left axes covered, 1658 display updates at checkpoint |
-| Alternate start button | Press B for a later fresh session | B start latch | C tests passed; physical B check pending |
+| Alternate start button | Press B for a later fresh session | B start latch | Passed during the two-controller session |
 | Visual correctness | Watch dot move with left stick; report only problems | Requires human eyes; telemetry cannot prove visible output | Passed: user confirmed correct and responsive |
 | Controller off/on | Turn controller off, wait for next cue, turn it on normally | Disconnect/reconnect events, new reports | Passed: existing bond reused, encryption and input recovered; user confirmed display |
 | Board restart persistence | Reset micro:bit, then press either front button with controller on | New boot, retained bond, encrypted reconnect without pairing | Passed: A detected first, bond resolved, re-encryption and new input; zero new pairings |

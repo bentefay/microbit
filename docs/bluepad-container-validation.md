@@ -20,7 +20,7 @@ counts writes performed by each pad while both were ready, solo-input snapshots
 and reconnections by address. The monitor can be safely restarted through
 `bluepad monitor-stop`, scoped to this repo's mounted serial transport.
 
-Validation: 52 CLI tests passed (680 assertions). Packet, button, frame and
+Validation: 52 CLI tests passed (683 assertions). Packet, button, frame and
 ownership C tests passed with ASan/UBSan in Docker. Ownership tests cover idle
 jitter, slow deliberate motion, neutral return, loss of either owner/non-owner,
 fallback, losing both, rejoining and late reports from a disconnected slot.
@@ -29,7 +29,16 @@ The build passed artifact checks: 245908 bytes flash, 50872 bytes static RAM.
 Flashed at 06:50:45 UTC; same-device remount, no `FAIL.TXT`, then live `waiting`
 heartbeats. HEX SHA-256:
 `a472ffb559ca26b5b9b66cf50276a299c2684f159027af765b4395bea7e23af5`.
-Hardware concurrency and independent recovery checks are pending. New capture:
+The user started with B. Both controller identities completed HID setup and stayed
+connected simultaneously (mask 3). Each controlled the display: per-controller
+counters recorded 522 and 441 framebuffer writes while both were connected at the
+saved checkpoint. The initial report is saved locally as
+`.cache/observations/bluepad-dual-handover-result.json`. Independent power-cycle
+recovery checks also passed in both directions: each identity's connection count
+reached two, both used their saved bonds to re-encrypt, the other link stayed up,
+and each regained display control. The user confirmed both worked perfectly.
+Solo-input snapshots were also recorded from the first during the second's absence.
+Both-off recovery remains pending. New capture:
 `.cache/observations/2026-10-25T06-50-55-316Z-bluepad-session-8e130e25.jsonl`.
 
 ## Both bonds retained; report cadence comparison

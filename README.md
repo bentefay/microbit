@@ -46,8 +46,9 @@ have passed. Controller power-cycle recovery and saved-pairing recovery after a
 micro:bit restart also passed. See
 [container validation](docs/bluepad-container-validation.md).
 Both Xbox controllers passed input checks and retain their saved pairings across
-restart. The latest diagnostic enables two concurrent controllers, with left-stick
-movement selecting which controls the matrix; concurrent recovery checks are in progress.
+restart. The latest diagnostic supports two concurrent controllers, with left-stick
+movement selecting which controls the matrix. Both simultaneous control and
+independent off/on recovery have passed physical testing.
 A slower initial report cadence on the
 second improved after normal reconnection; its cause is still under investigation.
 The Xbox diagnostic now includes left-stick LED feedback. Physical sessions follow
