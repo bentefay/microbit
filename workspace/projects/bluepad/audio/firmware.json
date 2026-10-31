@@ -1,0 +1,34 @@
+{
+  "voice": "af_heart",
+  "rate": 16000,
+  "format": "unsigned-8-bit",
+  "clips": [
+    {
+      "id": "speed",
+      "sourceSha256": "c55390cd7eb3803bf66ba210317c9871fe1e2da49c636b6f9748907fc3ac6433",
+      "first": 6319,
+      "last": 24851,
+      "gain": 2.9885658152548427,
+      "samples": 12355,
+      "pcmSha256": "970d51eb609298e0234ec7a9469c070e8328d1028cfba337cde056ca2ead15fc"
+    },
+    {
+      "id": "steering-centre",
+      "sourceSha256": "b6edf3d6e8fc13b8e21b5cf4e1409e6e274abba6978717d40e23345d0bd86d55",
+      "first": 5642,
+      "last": 32974,
+      "gain": 1.958963933609437,
+      "samples": 18222,
+      "pcmSha256": "cf173fe52ee770c010f1ea041f9607c57cf6037de3215c653164384a4cbb868a"
+    },
+    {
+      "id": "steering-range",
+      "sourceSha256": "ee1c296fa342688440f0266a1c8aeabdad18161855db87cf0191519deba3967a",
+      "first": 5938,
+      "last": 32458,
+      "gain": 1.9178675779762628,
+      "samples": 17680,
+      "pcmSha256": "fff70effc6b204d95fb81c05e2a87757dd0b3a875c4be5745be3d8a989c0c7f9"
+    }
+  ]
+}

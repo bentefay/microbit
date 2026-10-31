@@ -1,0 +1,9 @@
+# Kokoro-82M speech synthesis. `run tts lock` resolves this inside Docker into
+# requirements.lock (direct URLs + SHA-256); the image installs only the lock.
+kokoro==0.9.4
+misaki[en]==0.9.4
+soundfile==0.13.1
+# CPU-only PyTorch: the CPU index is listed first, and the lock rejects CUDA wheels.
+torch
+# Misaki otherwise downloads this spaCy model at synthesis time.
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

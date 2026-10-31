@@ -1,0 +1,60 @@
+{
+  "engine": "kokoro-82m",
+  "sample_rate": 24000,
+  "clips": [
+    {
+      "voice": "af_heart",
+      "id": "speed",
+      "text": "Speed.",
+      "phonemes": "sp\u02c8id.",
+      "samples": 33600,
+      "file": "af_heart/speed.wav",
+      "sha256": "c55390cd7eb3803bf66ba210317c9871fe1e2da49c636b6f9748907fc3ac6433"
+    },
+    {
+      "voice": "af_heart",
+      "id": "steering-centre",
+      "text": "Steering center.",
+      "phonemes": "st\u02c8\u026a\u0279\u026a\u014b s\u02c8\u025bnt\u0259\u0279.",
+      "samples": 41400,
+      "file": "af_heart/steering-centre.wav",
+      "sha256": "b6edf3d6e8fc13b8e21b5cf4e1409e6e274abba6978717d40e23345d0bd86d55"
+    },
+    {
+      "voice": "af_heart",
+      "id": "steering-range",
+      "text": "Steering range.",
+      "phonemes": "st\u02c8\u026a\u0279\u026a\u014b \u0279\u02c8An\u02a4.",
+      "samples": 41400,
+      "file": "af_heart/steering-range.wav",
+      "sha256": "ee1c296fa342688440f0266a1c8aeabdad18161855db87cf0191519deba3967a"
+    },
+    {
+      "voice": "af_bella",
+      "id": "speed",
+      "text": "Speed.",
+      "phonemes": "sp\u02c8id.",
+      "samples": 33600,
+      "file": "af_bella/speed.wav",
+      "sha256": "c4c2bc47d6d0e0836c193cc99bda7d7248c3f11eaefcdcfee812601d7d08a771"
+    },
+    {
+      "voice": "af_bella",
+      "id": "steering-centre",
+      "text": "Steering center.",
+      "phonemes": "st\u02c8\u026a\u0279\u026a\u014b s\u02c8\u025bnt\u0259\u0279.",
+      "samples": 42600,
+      "file": "af_bella/steering-centre.wav",
+      "sha256": "7180a456a780d136910495c1683fa4837b16f530734dcd9a7de175cbac1089ee"
+    },
+    {
+      "voice": "af_bella",
+      "id": "steering-range",
+      "text": "Steering range.",
+      "phonemes": "st\u02c8\u026a\u0279\u026a\u014b \u0279\u02c8An\u02a4.",
+      "samples": 42600,
+      "file": "af_bella/steering-range.wav",
+      "sha256": "5f820948145164611263fe4a054e84bf775e20c0e09aa7812f0272011ff1ad49"
+    }
+  ]
+}

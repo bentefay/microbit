@@ -1,0 +1,11 @@
+{
+  "lang_code": "a",
+  "voices": ["af_heart", "af_bella"],
+  "speed": 1.0,
+  "seed": 0,
+  "clips": [
+    { "id": "speed", "text": "Speed." },
+    { "id": "steering-centre", "text": "Steering center." },
+    { "id": "steering-range", "text": "Steering range." }
+  ]
+}
