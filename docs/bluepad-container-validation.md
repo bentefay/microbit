@@ -1,5 +1,43 @@
 # Bluepad container integration validation
 
+## Disconnect diagnosis and ±360° range, 2026-10-31 10:29 UTC
+
+The previous capture records two Eli disconnects with reason 0x3d (MIC failure),
+followed by cancellation at uptime 143236/175191 ms. Uptime continues through
+both; no changed-value save/store occurred beforehand. These events reverted
+unsaved edits, without evidence of a micro:bit reboot or loss of persisted data.
+The audio worker masked all interrupts while synthesizing 512 samples, blocking
+this build's non-zero-latency Bluetooth radio. It now masks only PWM1. This
+removes a real timing hazard; the MIC-failure causal link remains to be verified
+with repeated physical input. Tests now reject global masking in the audio adapter.
+
+Ben requested range up to ±360°/5°. Defaults remain 20% and ±45°. The motor worker
+reads raw encoder feedback every 50 ms and follows unwrapped targets using 60°
+waypoints, advancing within 5°. It can represent 720° from full left to full
+right without modulo aliasing, and replans reversals from measured position.
+Encoder failure, jumps over 90° or stale/slow feedback latch a stop. The existing
+100 ms I2C transaction timeout remains enabled. MBST v2 uses range/5 in its byte;
+valid v1 records load without migration writes until settings actually change.
+
+69 CLI tests / 798 assertions and twelve native ASan/UBSan suites passed. New
+coverage includes full-turn path simulation, mid-move reversals, stalled encoder,
+raw discontinuities, v1/v2 persistence, and the real motor worker with simulated
+read failure, discontinuity, A+B abort and save hold. CLI telemetry distinguishes
+disconnects from observed uptime restarts and exposes unwrapped steering feedback.
+Both motor-drive and report-only builds passed. Motor-drive text/data/BSS:
+303340/1456/54922 bytes. Report-only: 245316/1280/49653.
+
+Verified motor-drive HEX:
+`5f0af7d7a316655cf21f5c9d545379ecb6d33389f4759738a3b5b000e694d539`.
+Separate authorized flash completed at **10:29:17 UTC**, same-device remount,
+no `FAIL.TXT`. Monitor was stopped before flashing and restarted at 10:29:20 UTC.
+Capture: `.cache/observations/2026-10-31T10-29-20-219Z-bluepad-session-065af0b9.jsonl`.
+Fresh telemetry: Eli connected, awaiting first input, I2C 0 with continuing encoder
+polls, raw boot and current path position 0, defaults 20% / centre 0° / ±45°,
+pending false, audio status 0. Initial observation has no audio requests or
+multi-turn movement; it is not physical verification of the disconnect fix or
+steering travel. Encoder reference across full power-off remains unresolved.
+
 ## Settings follow-up, 2026-10-31 10:19 UTC
 
 Ben reported silent audio, overly fast scrolling, and requested both controllers'

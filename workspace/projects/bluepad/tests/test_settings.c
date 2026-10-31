@@ -28,9 +28,9 @@ int main(void) {
     assert(press(&s,SET_UP_KEY,5001)==SET_UP && s.live.center==1);
     assert(press(&s,SET_DOWN_KEY,5002)==SET_DOWN && s.live.center==359);
     assert(press(&s,SET_RIGHT_KEY,5003)==SET_SELECT && s.selected==2);
-    for (unsigned i=0;i<7;i++) assert(press(&s,SET_UP_KEY,5010+i)==SET_UP);
-    assert(s.live.range==80 && press(&s,SET_UP_KEY,5020)==SET_LIMIT);
-    for (unsigned i=0;i<15;i++) assert(press(&s,SET_DOWN_KEY,5030+i)==SET_DOWN);
+    for (unsigned i=0;i<63;i++) assert(press(&s,SET_UP_KEY,5010+i)==SET_UP);
+    assert(s.live.range==360 && press(&s,SET_UP_KEY,5020)==SET_LIMIT);
+    for (unsigned i=0;i<71;i++) assert(press(&s,SET_DOWN_KEY,5030+i)==SET_DOWN);
     assert(s.live.range==5 && press(&s,SET_DOWN_KEY,5050)==SET_LIMIT);
     assert(press(&s,SET_RIGHT_KEY,5051)==SET_SELECT && s.selected==0);
     assert(press(&s,SET_LEFT_KEY,5052)==SET_SELECT && s.selected==2);
@@ -52,7 +52,7 @@ int main(void) {
     assert(settings_repeat(&s,1000,true)==SET_NONE);
 
     uint8_t record[SETTINGS_BYTES]; motor_settings_t decoded;
-    motor_settings_t value={100,1,80}; settings_encode(value,359,record);
+    motor_settings_t value={100,1,360}; settings_encode(value,359,record);
     assert(settings_decode(record,sizeof(record),359,&decoded) && settings_equal(value,decoded));
     assert(settings_decode(record,sizeof(record),89,&decoded) && decoded.center==91); // explicit offset reference
     assert(!settings_decode(record,9,359,&decoded));
@@ -60,7 +60,16 @@ int main(void) {
         record[i]^=1u<<bit; assert(!settings_decode(record,sizeof(record),359,&decoded)); record[i]^=1u<<bit;
     }
     value.speed=101; settings_encode(value,0,record); assert(!settings_decode(record,sizeof(record),0,&decoded));
-    value=(motor_settings_t){20,359,85}; settings_encode(value,0,record); assert(!settings_decode(record,sizeof(record),0,&decoded));
+    value=(motor_settings_t){20,359,365}; settings_encode(value,0,record); assert(!settings_decode(record,sizeof(record),0,&decoded));
+    // v1 uses degrees in byte 4; v2 uses five-degree units. Valid old records
+    // still decode, but a forged v1 wider than its old limit is rejected.
+    record[0]=1; record[4]=80;
+    uint32_t crc=settings_crc(record,6);
+    for (unsigned i=0;i<4;i++) record[6+i]=(uint8_t)(crc>>(8*i));
+    assert(settings_decode(record,sizeof(record),0,&decoded) && decoded.range==80);
+    record[4]=85; crc=settings_crc(record,6);
+    for (unsigned i=0;i<4;i++) record[6+i]=(uint8_t)(crc>>(8*i));
+    assert(!settings_decode(record,sizeof(record),0,&decoded));
     assert(settings_crc((const uint8_t *)"123456789",9)==0xcbf43926u);
 
     uint8_t frame[25]; s.selected=0; s.live.speed=100;
@@ -75,6 +84,8 @@ int main(void) {
     assert(!settings_frame(&s,7000,false,frame));
     s.selected=1; s.live.center=0; settings_frame(&s,0,true,frame);
     for (unsigned i=0;i<25;i++) assert(frame[i]==0);
+    s.selected=2; s.live.range=360; settings_frame(&s,0,true,frame);
+    for (unsigned i=0;i<25;i++) assert(frame[i]==180);
     for (unsigned event=SET_ENTER;event<=SET_CANCEL;event++) {
         const uint8_t *packet=settings_rumble_report(event);
         assert(packet[3]<=100 && packet[4]<=100 && packet[5]>0 && packet[5]<=25);

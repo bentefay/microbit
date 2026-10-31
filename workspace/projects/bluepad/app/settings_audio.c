@@ -78,7 +78,10 @@ static void audio_worker(void *a, void *b, void *c) {
         while (!nrfx_pwm_stopped_check(&pwm) && waited++<10) k_msleep(1);
         if (!nrfx_pwm_stopped_check(&pwm)) { atomic_set(&audio_result,-ETIMEDOUT); continue; }
         atomic_set(&audio_result,0);
-        unsigned key=irq_lock();
+        // The stopped PWM is the only interrupt sharing this playback state.
+        // Never mask the radio while synthesizing 512 samples: its encrypted
+        // link-layer turnaround deadlines are much shorter than that work.
+        irq_disable(PWM1_IRQn);
         current=request; cursor=played=0;
         speech=(current.event==SET_ENTER || current.event==SET_SELECT) && current.selected<3;
         tone_samples=audio_tone_ms(current.event)*16;
@@ -90,7 +93,7 @@ static void audio_worker(void *a, void *b, void *c) {
             nrfx_pwm_complex_playback(&pwm,&sequence[0],&sequence[1],1,
                 NRFX_PWM_FLAG_LOOP|NRFX_PWM_FLAG_SIGNAL_END_SEQ0|NRFX_PWM_FLAG_SIGNAL_END_SEQ1|NRFX_PWM_FLAG_NO_EVT_FINISHED);
         }
-        irq_unlock(key);
+        irq_enable(PWM1_IRQn);
     }
 }
 K_THREAD_DEFINE(settings_audio_thread,1536,audio_worker,NULL,NULL,NULL,9,0,0);

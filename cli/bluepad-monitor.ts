@@ -14,6 +14,10 @@ export class BluepadMonitor {
   encoder: { deviceMs: number; rawTenths: number; bootCenter: number } | null = null;
   audio: { deviceMs: number; result: number; rate: number } | null = null;
   audioPlayback: { deviceMs: number; started: number; completed: number } | null = null;
+  steering: { deviceMs: number; positionTenths: number; targetDegrees: number; waypointDegrees: number } | null = null;
+  disconnects = 0;
+  restarts = 0;
+  lastDisconnect: { address: string; reason: number; hostMs: number } | null = null;
   motor: { state: string; step: number; result: number; deviceMs: number } | null = null;
   drive: { state: string; owner: number; speed: number; target: number; center: number;
     writes: number; result: number; livenessAgeMs: number; maxIoMs: number; deviceMs: number } | null = null;
@@ -21,6 +25,14 @@ export class BluepadMonitor {
   private sawStart = false;
   dual = new DualPads();
   push(line: string, hostMs: number): string | undefined {
+    const lost = /^Device ((?:[0-9a-f]{2}:){5}[0-9a-f]{2}) disconnected, deleting it\. Reason=0x([0-9a-f]{2}), status=0$/i.exec(line);
+    if (lost) {
+      this.disconnects++;
+      this.lastDisconnect = { address: lost[1].toUpperCase(), reason: parseInt(lost[2], 16), hostMs };
+      return `BLUETOOTH DISCONNECT: ${lost[1]}, reason 0x${lost[2]}` +
+        (this.lastDisconnect.reason === 0x3d ? ' (encrypted packet integrity failure)' : '') +
+        '. An open settings session on this controller cancels; this event does not indicate a micro:bit restart.';
+    }
     const dualNotice = this.dual.push(line);
     if (dualNotice) return dualNotice;
     const p = line.split(',');
@@ -28,7 +40,7 @@ export class BluepadMonitor {
       ['defaults', 'loaded', 'factory-reset', 'enter', 'select', 'up', 'down', 'limit', 'save', 'cancel', 'stored', 'store-error', 'status'].includes(p[2]) &&
       p.slice(3).every(x => /^\d+$/.test(x)) && ['0', '1'].includes(p[3]) && Number(p[4]) <= 2 &&
       Number(p[5]) >= 5 && Number(p[5]) <= 100 && Number(p[5]) % 5 === 0 && Number(p[6]) < 360 &&
-      Number(p[7]) >= 5 && Number(p[7]) <= 80 && Number(p[7]) % 5 === 0 && ['0', '1'].includes(p[8])) {
+      Number(p[7]) >= 5 && Number(p[7]) <= 360 && Number(p[7]) % 5 === 0 && ['0', '1'].includes(p[8])) {
       this.settings = { deviceMs: Number(p[1]), event: p[2], active: p[3] === '1', selected: Number(p[4]),
         speed: Number(p[5]), center: Number(p[6]), range: Number(p[7]), pending: p[8] === '1' };
       if (p[2] !== 'status') return `SETTINGS ${p[2]}: speed ${p[5]}%, centre ${p[6]}°, range ±${p[7]}°.` +
@@ -45,6 +57,9 @@ export class BluepadMonitor {
     if (p[0] === 'BP_AUDIO_PLAY' && p.length === 4 && p.slice(1).every(x => /^\d+$/.test(x)) && Number(p[3]) <= Number(p[2])) {
       this.audioPlayback = { deviceMs: Number(p[1]), started: Number(p[2]), completed: Number(p[3]) }; return;
     }
+    if (p[0] === 'BP_STEERING' && p.length === 5 && /^\d+$/.test(p[1]) && p.slice(2).every(x => /^-?\d+$/.test(x) && Number.isSafeInteger(Number(x)))) {
+      this.steering = { deviceMs: Number(p[1]), positionTenths: Number(p[2]), targetDegrees: Number(p[3]), waypointDegrees: Number(p[4]) }; return;
+    }
     if (p[0] === 'BP_DRIVE' && p.length === 11 &&
       ['waiting', 'input', 'neutral', 'active', 'stale', 'aborted', 'fault'].includes(p[2]) &&
       [p[1], ...p.slice(3)].every(x => /^-?\d+$/.test(x)) && ['-1', '0', '1'].includes(p[3])) {
@@ -56,7 +71,7 @@ export class BluepadMonitor {
         input: 'Waiting for controller input.', neutral: 'Centre both control sticks to enable.',
         active: 'Xbox motor control active. B toggles either-stick/split controls; blue A toggles override.',
         stale: 'Input quiet; motors stopped. If it timed out during movement, centre the sticks to resume.',
-        aborted: 'A+B stop latched; reset to enable again.', fault: `Motor I2C error ${p[8]}; stop attempted; reset required.` }[p[2]]);
+        aborted: 'A+B stop latched; reset to enable again.', fault: `Motor/encoder error ${p[8]}; stop attempted; reset required.` }[p[2]]);
       return;
     }
     if (p[0] === 'BP_MOTOR' && p.length === 5 && /^\d+$/.test(p[1]) &&
@@ -77,7 +92,7 @@ export class BluepadMonitor {
       if (uptime < this.uptime || p[3] === 'waiting') {
         this.lastInput = null;
         this.sawStart = false;
-        if (uptime < this.uptime) { this.motor = null; this.drive = null; this.settings = null; this.encoder = null; this.audio = null; this.audioPlayback = null; }
+        if (uptime < this.uptime) { this.restarts++; this.motor = null; this.drive = null; this.settings = null; this.encoder = null; this.audio = null; this.audioPlayback = null; this.steering = null; }
       }
       this.uptime = uptime;
       this.lastStatusAt = hostMs;
@@ -142,7 +157,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE|SETTINGS|ENCODER|AUDIO|AUDIO_PLAY),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE|SETTINGS|ENCODER|AUDIO|AUDIO_PLAY|STEERING),/.test(line) || line.startsWith('Device ')) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

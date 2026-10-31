@@ -88,7 +88,11 @@ demands. It checks every 10 ms, sends drive before steering, and writes only cha
 speed/position targets. Continuous drive uses command 0x60 (0x5f at neutral), not
 incremental 0x70 moves. Steering uses nonblocking absolute-position command 0x5d,
 with the vendor's 4 ms exclusive bus settling interval and no 500 ms optional wait.
-Encoder reads occur once at initialization, not in the control loop. Bluetooth
+Raw encoder reads now occur every 50 ms on the motor worker. Steering tracks
+unwrapped travel and sends waypoints at most 60° from measured position, advancing
+within 5° of each waypoint. This supports ±360° without shortest-path reversal
+or losing full turns. A raw jump over 90°, read failure or stale feedback stops
+and latches fault; no vendor readiness loop is used. Bluetooth
 callbacks only publish input and never perform motor I2C operations.
 
 An age over 500 ms since the last input notification or confirmed peer response
@@ -110,7 +114,8 @@ Software watchdog timing is not a measured radio-loss stop-time guarantee.
 
 `BP_DRIVE,time,state,owner,speed,target,centre,writes,result,liveness_age_ms,max_write_ms`
 reports requested outputs and I2C completion status at 5 Hz. Stable demands should
-leave the write counter unchanged. Position fields are modulo 360; the target is
+leave motor command counts unchanged, but encoder request writes continue.
+Position fields are modulo 360; the target is
 not measured shaft position. The live monitor saves this alongside both controllers.
 
 ### Controller settings (motor-drive only)
@@ -128,11 +133,14 @@ the editor gets brief action/limit/enter/save/cancel rumble. Full UX and safety 
 [settings mode](../../../docs/settings-mode.md).
 
 Defaults remain 20% speed and ±45° travel; ranges are 5–100%/5%, centre 0–359°/2°
-(wrap), and ±5–80°/5°. No chassis calibration is implied. For now a saved centre
+(wrap), and ±5–360°/5°. Full left to full right can now traverse two revolutions.
+No chassis calibration is implied. For now a saved centre
 is a modulo-360 offset from the boot encoder reading: the encoder's persistent
 reference is still unverified. Park centred before power-off.
 
-Settings use MBST v1 + CRC32 in the existing TLV banks. Menu accepts in RAM;
+Settings use MBST v2 + CRC32 in the existing TLV banks (v1 remains readable).
+v2 stores range in five-degree units; unchanged v1 records are not rewritten.
+Menu accepts in RAM;
 if changed, persistence waits for neutral control axes and M1 speed zero, then
 the I2C worker stops both motors and acknowledges a hold covering flash I/O and
 readback. New inputs cannot resume a motor until the hold is released. A failed
@@ -147,6 +155,10 @@ the encoded record is compared with the actual TLV bytes, including on retries.
 values (selected 0/1/2). `stored` means record readback matched; `save` may still
 be pending. `BP_ENCODER,time,raw_tenths,boot_centre` repeats the single boot capture,
 not a live encoder poll. `BP_AUDIO,time,init|status,result,16000` reports PWM status.
+`BP_STEERING,time,position_tenths,target_degrees,waypoint_degrees` reports the
+unwrapped feedback and commanded path, in a coordinate system starting at the
+boot centre. Raw feedback continuity and physical two-turn travel need bench
+verification; a discontinuous/wrapping encoder causes a fault instead of guessing.
 `BP_RUMBLE,time,event,result,slot` means output report accepted for the editing
 controller, not felt feedback. `BP_AUDIO_PLAY,time,started,completed` distinguishes
 DMA playback progress from initialization; replaced clips do not count as completed.

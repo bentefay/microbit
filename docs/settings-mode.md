@@ -14,12 +14,14 @@ steer, so each change can be tested immediately.
 | --- | --- | --- | --- | --- |
 | Max drive speed (M1 full-stick %) | "Speed" / `SPEED` | 20 | 5–100 | 5 |
 | Steering centre (M2 absolute angle) | "Steering centre" / `STEERING CENTRE` | startup encoder angle (see Encoder) | 0–359, wraps | 2° |
-| Steering range (± degrees about centre) | "Steering range" / `STEERING RANGE` | 45 | 5–80 | 5° |
+| Steering range (± degrees about centre) | "Steering range" / `STEERING RANGE` | 45 | 5–360 | 5° |
 
 Defaults reproduce today's firmware, so the first flash of the new firmware is no
-more aggressive than the current one. Steering range is hard-capped at ±80°:
-M2 uses shortest-path absolute positioning (`0x5d`), so a total sweep near 180°
-could make a fast full-left→full-right flick rotate the wrong way round.
+more aggressive than the current one. Ben subsequently requested a ±360° maximum
+in 5° steps. This supersedes the original ±80° cap. The worker now tracks cumulative
+encoder travel and issues short `0x5d` waypoints instead of sending the final wrapped
+angle directly: full left to full right at maximum range means **720° of travel**.
+These remain loose-shaft bench limits, not calibrated chassis limits.
 
 ## Controls (either commissioned controller)
 
@@ -56,6 +58,15 @@ controller's B (split/either toggle) keep their meanings.
   is caused by the press; there are no other "demonstration" movements.
 - Range: recomputed immediately; hold the stick at full lock and press up/down to
   watch the limit move.
+- Steering uses the raw signed `0x46` cumulative reading every 50 ms, from the
+  dedicated I2C worker. Each position waypoint is at most 60° from measured
+  position and advances when within 5°. A new demand replans from measured position;
+  a held demand cannot accumulate turns. Wraparound centre edits remain 2° steps.
+  Read failures, reads taking over 150 ms, feedback older than 150 ms, or raw jumps
+  over 90° between samples stop both motors and latch a fault. The existing 100 ms
+  I2C transfer timeout bounds each transaction. No vendor readiness loop or motion
+  wait is used. Actual multi-turn encoder continuity still needs bench verification;
+  wrapping/resetting feedback is rejected rather than guessed around.
 - The planner must re-emit speed/target writes when settings change even if the
   stick has not moved. Keep command suppression otherwise.
 
@@ -91,8 +102,8 @@ display and no rumble request. A/B, sticks and A+B do not gain extra sounds or
 rumbles. No extra demonstration movement is introduced.
 
 Names scroll at **200 ms per column** (half the original speed), once, then the bar fills from the bottom left
-across each row to the top. The 25 LEDs represent 0–100%, 0–359°, or 0–80°;
-minimum speed/range still light a few pixels, while 0° is blank. It is deliberately
+across each row to the top. The 25 LEDs represent 0–100%, 0–359°, or 0–360°;
+low values may share an empty or single-pixel bar, while centre 0° is blank. It is deliberately
 coarse, not a numerical readout. Up/down (including a limit press) immediately
 shows the bar; navigation starts the new name. Rapid actions replace unfinished
 speech/tones. Exit immediately restores the usual ownership/input display.
@@ -102,9 +113,11 @@ speech/tones. Exit immediately restores the usual ownership/input display.
 - Store in the existing BTstack TLV flash bank (24 KiB storage partition at
   `0x7a000`, two 12 KiB banks, configured in `main.c`). Use app tag `'MBST'`
   (free; existing tags are `BTD*`, `SMIR`, `SMER`, `BTC*`, `BTDB`, `GDB*`, `BP3*`).
-  Ten-byte v1 record: version, speed, centre offset (little-endian 16-bit), range,
+  Ten-byte v2 record: version, speed, centre offset (little-endian 16-bit), range/5,
   reference flag 1, IEEE CRC32 over the first six bytes (little-endian CRC).
-  Invalid/missing/out-of-range → defaults. The offset decision is explained below.
+  Invalid/missing/out-of-range → defaults. Old v1 records (range in degrees, max
+  80) remain readable; no migration write is made unless values change. v2 fits
+  360° in the existing byte using five-degree units. Centre semantics are unchanged.
 - Write only on save-and-exit, and only if values changed.
 - **Never erase/write flash while a motor is commanded.** A page erase halts the
   CPU for up to ~90 ms (stalls I2C) and blocks the BTstack thread; radio sync
@@ -144,7 +157,7 @@ centre as an absolute angle. If it is relative to power-on, document it, keep th
 saved centre as an offset from the power-on reading, and tell Ben to park the
 steering centred before power-off.
 
-**Implementation decision while this is unverified:** v1 stores centre as a
+**Implementation decision while this is unverified:** v1 and v2 store centre as a
 modulo-360 offset from the boot reading, not as a claimed persistent absolute
 reference. The UI/telemetry still show the current boot's absolute target angle
 0–359°. A saved +2° adjustment is reapplied as +2° to the next boot's capture.
@@ -209,14 +222,18 @@ The candidates remain playable under `audio/candidates/af_heart/` and
 
 `run test` covers WAV validation, deterministic PCM hashes, conservative trimming,
 normalization, alias rejection, and settings/encoder/audio monitor parsing.
-Follow-up run: 68 CLI tests / 788 assertions passed. Host mount recovery additionally
+Latest run: 69 CLI tests / 798 assertions passed. Host mount recovery additionally
 checks the exact USB parent before asking udisks to mount only a FAT volume.
-`run bluepad test` runs ten native suites under ASan/UBSan. Settings coverage
+`run bluepad test` runs twelve native suites under ASan/UBSan. Settings coverage
 includes identity, connection-held keys, repeat timing/wrap and stale stop,
 limits/wrapping, save/cancel/disconnect, CRC corruption/range checks, scroll/bar,
 bounded feedback, live planner re-emission, and the real settings adapter with
 fake flash/motor interfaces (deferred save, stale acknowledgement, re-entry,
 unchanged-save suppression, readback failure/retry, reboot load, factory reset).
+Additional coverage: full ±360° path, 720° reversals, mid-travel reversals, held
+targets without encoder progress, raw discontinuities, timer wrap, v1 read/no-write
+and v2 persistence, and the real motor worker with simulated encoder/I2C faults,
+A+B abort and save-hold. Audio tests prohibit global IRQ masking.
 
 `BP_SETTINGS,time,event,active,selected,speed,centre,range,pending` carries exact
 values. `BP_AUDIO,time,init|status,result,16000` reports audio driver initialization
@@ -224,6 +241,9 @@ or stop failure. `BP_AUDIO_PLAY,time,started,completed` reports playback progres
 (a replaced clip does not count as completed).
 `BP_RUMBLE,time,event,result,slot` records successful enqueue to the editing pad. None
 of these proves visible LEDs, intelligible speech, felt rumble or physical motion.
+`BP_STEERING,time,position_tenths,target_degrees,waypoint_degrees` adds unwrapped
+feedback/path coordinates anchored to the boot centre. The monitor also retains
+disconnect reasons/counts separately from observed firmware uptime restarts.
 Bench feedback, actual save/reboot/reset behavior, flash-bank migration under
 load, radio-loss timing during feedback and DAPLink preservation of MBST remain
 unverified until physically exercised.
@@ -280,3 +300,40 @@ retained through this DAPLink flash**. Ordinary save/power-cycle persistence
 still needs its physical check; builds and normal restarts are distinct from
 reflashing. No controllers were connected in the initial observation and no
 audio action had been requested. The fix's audible output remains unverified.
+
+## Repeated-adjustment disconnect diagnosis and wider steering
+
+Ben reported an apparent crash/reset while repeatedly adjusting centre. The
+10:19:47 capture shows Eli disconnecting at device times **143236** and **175191**
+ms with **0x3d (MIC failure)**, immediately followed by settings cancellation.
+Uptime and playback counters continue: neither event is a micro:bit reboot.
+There is no changed-value save/store before either event; unsaved edits reverted
+to the accepted 20% / 0° / ±45° settings. The falling cancellation tone explains
+the sound at the same time. This does not demonstrate persisted-record loss.
+
+The audio startup code globally masked interrupts while generating 512 samples.
+This build does not enable zero-latency radio interrupts, so it also blocked the
+Bluetooth controller. Changed to mask only PWM1 while replacing its stopped
+playback state. This removes a concrete radio timing hazard; attributing the
+observed MIC failures to it remains a hypothesis pending repeated hardware input.
+No rumble feature or disconnect-cancellation semantics were removed.
+
+Pinned source evidence: Zephyr `c425eabae5724d39fdd828d31ec35dc850795fe1`,
+`include/zephyr/bluetooth/hci_types.h` (`BT_HCI_ERR_TERM_DUE_TO_MIC_FAIL`),
+`subsys/bluetooth/controller/ll_sw/nordic/lll/lll.c` (IRQ flags/priorities), and
+the resolved build configuration (`CONFIG_ZERO_LATENCY_IRQS` off). Vendor motor
+source: [pxt-nezha2 at 1f37a92](https://github.com/elecfreaks/pxt-nezha2/blob/1f37a92026cc53197fce86eb7c0e330caf9bb864/main.ts),
+`readAngle`/`readRelAngle` expose cumulative signed tenths; `moveToAbsAngle`
+normalizes to 0–359. That is why the new ±360° range needs feedback and waypoints,
+not merely a larger UI maximum. The raw reference across power cycles remains
+unverified and the boot-relative persistence decision is unchanged.
+
+Both builds passed. Motor-drive text/data/BSS is 303340/1456/54922 bytes;
+report-only remains 245316/1280/49653. Verified motor-drive HEX
+`5f0af7d7a316655cf21f5c9d545379ecb6d33389f4759738a3b5b000e694d539`
+was separately flashed with authorization at **10:29:17 UTC**, same-device remount,
+no `FAIL.TXT`. Monitoring restarted at 10:29:20 UTC. Fresh telemetry shows Eli
+connected, awaiting first input; successful ongoing encoder polls, raw boot 0,
+unwrapped position 0, defaults 20% / centre 0° / ±45°, no pending save and audio
+status 0. No repeated input or multi-turn movement was requested in that initial
+observation; it does not verify the disconnect fix or physical travel.

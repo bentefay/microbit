@@ -101,4 +101,16 @@ int main(void) {
     settings_disconnect(blue); assert(settings_active());
     settings_input(eli,0,0,fake_time++); settings_input(eli,0,4,fake_time++);
     tick(); assert(!settings_active() && store_calls==5); // Eli can save unchanged too
+    // Load old-format settings without wearing flash merely to migrate them.
+    settings_encode((motor_settings_t){20,350,80},350,fake_record);
+    fake_record[0]=1; fake_record[4]=80;
+    uint32_t crc=settings_crc(fake_record,6);
+    for (unsigned i=0;i<4;i++) fake_record[6+i]=(uint8_t)(crc>>(8*i));
+    initialized=false; fake_ready=false; settings_init(false); tick();
+    assert(applied.range==80);
+    keys(0,4); keys(0,4); tick(); assert(store_calls==5 && fake_record[0]==1);
+    keys(0,4); keys(4,0); keys(4,0); keys(1,0); keys(0,4); tick();
+    assert(applied.range==85 && fake_requested);
+    fake_ready=true; tick(); assert(store_calls==6 && fake_record[0]==2);
+    assert(settings_decode(fake_record,fake_size,350,&stored) && stored.range==85);
 }

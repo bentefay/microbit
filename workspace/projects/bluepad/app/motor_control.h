@@ -17,6 +17,8 @@ typedef struct {
     drive_mode_t mode;
     bool armed, valid, speed_changed, steering_changed;
     int center, speed, target, speed_cap, travel;
+    bool center_path_ready;
+    int64_t center_path, target_path; // unwrapped degrees, retains full turns
     uint32_t epoch;
 } drive_control_t;
 typedef struct { bool stop, speed, target; } drive_plan_t;
@@ -32,6 +34,9 @@ static inline int drive_axis(int raw, int cap) {
 }
 static inline int drive_angle(int angle) { return (angle % 360 + 360) % 360; }
 static inline void drive_configure(drive_control_t *s, int cap, int center, int travel) {
+    if (!s->center_path_ready) { s->center_path=s->center; s->center_path_ready=true; }
+    // Centre edits cross 359/0 by the short two-degree step, not a full turn.
+    s->center_path += drive_angle(center-s->center+180)-180;
     if (s->speed_cap != cap) s->speed_changed = true;
     if (s->center != center || s->travel != travel) s->steering_changed = true;
     s->speed_cap=cap; s->center=center; s->travel=travel;
@@ -57,11 +62,13 @@ static inline drive_plan_t drive_plan(drive_control_t *s, const drive_input_t *i
     }
     s->armed = true; s->mode = DRIVE_ACTIVE;
     int speed = -drive_axis(in->y, s->speed_cap ? s->speed_cap : DRIVE_CAP);
-    int target = drive_angle(s->center + drive_axis(in->x, s->travel ? s->travel : STEERING_TRAVEL));
+    if (!s->center_path_ready) { s->center_path=s->center; s->center_path_ready=true; }
+    int64_t target_path = s->center_path + drive_axis(in->x, s->travel ? s->travel : STEERING_TRAVEL);
+    int target = drive_angle((int)(target_path%360));
     plan.speed = !s->valid || s->speed_changed || speed != s->speed;
-    plan.target = !s->valid || s->steering_changed || target != s->target;
+    plan.target = !s->valid || s->steering_changed || target_path != s->target_path;
     s->speed_changed = s->steering_changed = false;
-    s->speed = speed; s->target = target; s->valid = true;
+    s->speed = speed; s->target = target; s->target_path=target_path; s->valid = true;
     return plan;
 }
 #endif

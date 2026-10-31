@@ -30,7 +30,7 @@ static inline bool settings_frame(settings_ui_t *s, uint32_t elapsed, bool skip,
         return true;
     }
     int value=s->selected==0?s->live.speed:s->selected==1?s->live.center:s->live.range;
-    int max=s->selected==0?100:s->selected==1?359:80;
+    int max=s->selected==0?100:s->selected==1?359:360;
     unsigned count=(unsigned)((value*25+max/2)/max);
     for (unsigned i=0;i<count;i++) frame[(4-i/5)*5+i%5]=180;
     return false;

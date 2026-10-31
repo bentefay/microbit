@@ -23,7 +23,7 @@ static inline motor_settings_t settings_defaults(int center) {
 }
 static inline bool settings_valid(motor_settings_t s) {
     return s.speed >= 5 && s.speed <= 100 && s.speed % 5 == 0 && s.center >= 0 && s.center < 360 &&
-           s.range >= 5 && s.range <= 80 && s.range % 5 == 0;
+           s.range >= 5 && s.range <= 360 && s.range % 5 == 0;
 }
 static inline bool settings_equal(motor_settings_t a, motor_settings_t b) {
     return a.speed == b.speed && a.center == b.center && a.range == b.range;
@@ -37,7 +37,7 @@ static inline settings_event_t settings_adjust(settings_ui_t *s, int direction) 
     int *v = s->selected == 0 ? &s->live.speed : s->selected == 1 ? &s->live.center : &s->live.range;
     int next = *v + direction * (s->selected == 1 ? 2 : 5);
     if (s->selected == 1) next = settings_angle(next);
-    else if (next < 5 || next > (s->selected == 0 ? 100 : 80)) return SET_LIMIT;
+    else if (next < 5 || next > (s->selected == 0 ? 100 : 360)) return SET_LIMIT;
     *v = next;
     return direction > 0 ? SET_UP : SET_DOWN;
 }
@@ -88,20 +88,21 @@ static inline uint32_t settings_crc(const uint8_t *p, unsigned n) {
     while (n--) { crc ^= *p++; for (unsigned i=0;i<8;i++) crc = (crc >> 1) ^ (0xedb88320u & (0u-(crc & 1))); }
     return ~crc;
 }
-// v1 stores centre as a modulo-360 offset from the boot reading until the
-// encoder's absolute reference has been physically established. No C padding.
+// v2 retains the boot-relative centre offset; range uses units of five degrees
+// to fit 360 in the existing byte. v1 records remain readable without rewriting.
 static inline void settings_encode(motor_settings_t s, int boot_center, uint8_t out[SETTINGS_BYTES]) {
     unsigned offset = settings_angle(s.center - boot_center);
-    out[0]=1; out[1]=(uint8_t)s.speed; out[2]=(uint8_t)offset; out[3]=(uint8_t)(offset >> 8);
-    out[4]=(uint8_t)s.range; out[5]=1; // explicit relative-reference flag
+    out[0]=2; out[1]=(uint8_t)s.speed; out[2]=(uint8_t)offset; out[3]=(uint8_t)(offset >> 8);
+    out[4]=(uint8_t)(s.range/5); out[5]=1; // explicit relative-reference flag
     uint32_t crc = settings_crc(out, 6);
     for (unsigned i=0;i<4;i++) out[6+i]=(uint8_t)(crc >> (8*i));
 }
 static inline bool settings_decode(const uint8_t *in, unsigned n, int boot_center, motor_settings_t *s) {
-    if (n != SETTINGS_BYTES || in[0] != 1 || in[5] != 1) return false;
+    if (n != SETTINGS_BYTES || (in[0] != 1 && in[0] != 2) || in[5] != 1) return false;
     uint32_t crc=0; for (unsigned i=0;i<4;i++) crc |= (uint32_t)in[6+i] << (8*i);
     int offset = in[2] | ((unsigned)in[3] << 8);
-    motor_settings_t value = {in[1], offset, in[4]};
+    if (in[0]==1 && in[4]>80) return false;
+    motor_settings_t value = {in[1], offset, in[0]==1?in[4]:in[4]*5};
     if (crc != settings_crc(in,6) || !settings_valid(value)) return false;
     value.center = settings_angle(boot_center + offset); *s = value; return true;
 }

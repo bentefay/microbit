@@ -31,19 +31,19 @@ controllers using the micro:bit radio. No ESP32 bridge is part of this setup.
   continuous control; `--motor-bench` is the separate finite four-jog test and
   still requires a front-button press. Do not flash the wrong variant.
 - Motor-drive now has Menu/View/D-pad settings on **both known controllers**, live speed (5–100%,
-  default 20%), centre (0–359°, 2° wrap) and range (±5–80°, default ±45°).
+  default 20%), centre (0–359°, 2° wrap) and range (±5–360°, default ±45°).
   Menu enters/saves, View or the editor's disconnect cancels; names scroll and speak,
   up/down skips to a value bar, tones/rumble distinguish actions. Sticks and A/B
   mappings keep working. See [full UX and decisions](settings-mode.md).
   The opener owns the settings session; the other pad's settings buttons are
   ignored until exit. Rumble and repeat-liveness probes follow that editor by
   stable identity. Text scrolls at 200 ms/column (half the initial speed).
-- MBST v1 + CRC32 saves only changed accepted values, after an I2C-worker
+- MBST v2 + CRC32 saves only changed accepted values, after an I2C-worker
   stop/hold handshake. Centre both control sticks and wait for `stored` before
   removing power. A at boot restores defaults; A+B still latches stop.
   Unchanged saves and edits restored before saving perform no settings write;
   the encoded bytes are also compared to the actual TLV record before appending.
-- Encoder reference remains unverified. v1 deliberately persists centre as an
+- Encoder reference remains unverified. v1/v2 deliberately persist centre as an
   offset from the boot reading; park centred before power-off. `BP_ENCODER`
   repeats the raw boot capture (not a live read). Ben's one power-cycle/hand-turn
   test will determine whether a future absolute-reference format is appropriate.
@@ -105,6 +105,34 @@ Do not promise DAPLink preservation. This is not the requested unpowered shaft-t
 encoder experiment. Speech/tones and rumble still need physical confirmation.
 Monitor remains running as a recorder.
 
+Subsequent repeated-adjustment report: captured disconnects at device uptime
+143236 and 175191 ms were **0x3d MIC failures**, followed by editor cancellation.
+Uptime continued; these were not micro:bit restarts. No changed-value save/store
+preceded them: the reverted values were unsaved edits. Audio startup globally
+masked interrupts during sample generation, also blocking this build's radio;
+the fix masks only PWM1. This removes a concrete timing hazard, but hardware
+repetition must establish whether it resolves the MIC disconnects.
+
+Ben also requested range up to **±360° in 5° steps**. `steering_path.h` plus the
+motor worker now use cumulative raw feedback and short waypoints, so opposite
+full locks differ by 720° rather than collapsing to one wrapped angle. Defaults
+remain 20% and ±45°. MBST v2 stores range/5; v1 still loads without a migration
+write until values change. `BP_STEERING` reports unwrapped position/target/waypoint.
+The monitor tracks disconnect reasons/counts separately from observed restarts.
+69 CLI tests / 798 assertions and twelve native sanitizer suites passed, including
+the actual motor worker under simulated encoder faults, abort and save holds.
+
+Current verified/flashed HEX:
+`5f0af7d7a316655cf21f5c9d545379ecb6d33389f4759738a3b5b000e694d539`.
+Both builds passed. Authorized flash at **2026-10-31 10:29:17 UTC** remounted the
+same serial with no `FAIL.TXT`; monitor restarted at 10:29:20 UTC. Current capture:
+`.cache/observations/2026-10-31T10-29-20-219Z-bluepad-session-065af0b9.jsonl`.
+Initial fresh telemetry: Eli connected, awaiting first input; I2C 0 with ongoing
+encoder polls, raw boot reading 0, unwrapped position 0, speed 20%, centre 0°,
+range ±45°, pending false, audio status 0. No audio actions or multi-turn movements
+were requested in that observation. No restarts/disconnects observed yet, but
+this idle interval is not repeated-input stress validation. Recorder left running.
+
 ## What is already tested
 
 Ben confirmed responsive/correct LED direction, both controllers together,
@@ -128,8 +156,11 @@ or an end-to-end latency measurement. No loaded chassis test has been recorded.
 - `motor_control.h`: pure planner and command suppression; `motor_drive.c`:
   dedicated I2C worker, latest snapshot rather than a queue, 10 ms loop, drive
   written before steering. Continuous M1 uses `0x60` / stop `0x5f`, not repeated
-  incremental moves. M2 uses absolute `0x5d`, shortest-path mode, with required
-  4 ms bus settling. No optional vendor 500 ms motion wait is used.
+  incremental moves. M2 now uses unwrapped encoder feedback every 50 ms and
+  `0x5d` waypoints at most 60° from measured position, advancing within 5°, with
+  required 4 ms settling. This permits ±360° (720° lock-to-lock) without wrapped
+  shortcut reversals. No optional vendor 500 ms motion wait is used. Raw jumps
+  over 90°, stale/failed/slow reads latch a stop. See `steering_path.h`.
 - Xbox notifications may stop while a stick is held steady. **Do not use HID
   GET_REPORT as fresh control input**: these controllers returned a neutral
   template and caused the earlier half-second drive interruption and steering
@@ -140,7 +171,8 @@ or an end-to-end latency measurement. No loaded chassis test has been recorded.
   reports are not evidence of that owner's radio connection. No reply/input for
   over 500 ms stops output; moving stale input must re-centre before resuming.
 - Steering centre is captured once on startup. There is no automatic chassis
-  homing, measured linkage calibration or encoder polling in the control loop.
+  homing or measured linkage calibration. The motor worker now polls raw encoder
+  feedback for safe multi-turn path tracking; `BP_ENCODER` still means boot capture.
   Saved offset is applied after capture; the worker waits for settings to load
   before arming. Live setting changes force the relevant command to be re-emitted.
 - `settings_logic.h` holds UI/limits/CRC; `settings.c` owns accepted vs persisted

@@ -1,6 +1,25 @@
 import { expect, test } from 'bun:test';
 import { BluepadMonitor } from './bluepad-monitor';
 
+test('encrypted link loss is distinct from a firmware restart and unsaved cancellation', () => {
+  const m = new BluepadMonitor();
+  m.push('BP_STATUS,1,174000,connected,0,2000', 0);
+  m.push('BP_SETTINGS,174100,down,1,1,100,328,360,0', 1);
+  expect(m.settings?.range).toBe(360);
+  expect(m.push('Device 5C:BA:37:67:7F:DA disconnected, deleting it. Reason=0x3d, status=0', 2)).toContain('integrity failure');
+  m.push('BP_SETTINGS,175191,cancel,0,1,20,0,45,0', 3);
+  m.push('BP_STATUS,1,176000,scanning,0,2001', 4);
+  expect(m.disconnects).toBe(1); expect(m.restarts).toBe(0);
+  expect(m.lastDisconnect?.reason).toBe(0x3d);
+  expect(m.settings).toMatchObject({ active: false, speed: 20, pending: false });
+  m.push('BP_STEERING,176100,-3600,360,-300', 5);
+  expect(m.steering).toMatchObject({ positionTenths: -3600, targetDegrees: 360, waypointDegrees: -300 });
+  m.push('BP_STATUS,1,1000,scanning,0,0', 6);
+  expect(m.restarts).toBe(1); expect(m.steering).toBeNull();
+  m.push('BP_SETTINGS,1001,status,0,1,20,0,365,0', 7);
+  expect(m.settings).toBeNull();
+});
+
 test('settings monitor distinguishes pending RAM saves, verified storage and boot encoder captures', () => {
   const m = new BluepadMonitor();
   m.push('BP_STATUS,1,10000,scanning,0,0', 0);

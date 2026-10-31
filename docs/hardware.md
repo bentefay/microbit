@@ -67,9 +67,9 @@ guarantee that a later session still has the same physical setup.
 
 Native motor-drive defaults to M1 ±20% continuous speed and M2 ±45° around its startup
 encoder position, at 15% positioning speed. Either controller's settings can change
-the drive cap to 5–100%, centre in 2° steps and travel to ±5–80° in 5° steps.
-The ±80° hard cap keeps the total steering sweep below 180° for shortest-path
-positioning; it is not a measured linkage limit. These are loose-shaft bench limits,
+the drive cap to 5–100%, centre in 2° steps and travel to ±5–360° in 5° steps.
+The wider range requested by Ben uses measured encoder travel and short position
+waypoints; full left to right at maximum is two turns. These are loose-shaft bench limits,
 not measured steering-linkage limits. Both sticks must be centred before initial
 arming. The LED shows the selected drive/steering input, not measured motor position.
 
@@ -110,6 +110,19 @@ M1 stopped awaiting input and defaults 20% / centre 0° / ±45°. The earlier 10
 setting was not retained across this DAPLink flash. Audio initialized successfully;
 no playback was requested in the initial observation. This reboot is not the
 unpowered hand-turn encoder test and does not establish its reference semantics.
+
+Ben subsequently heard a tone and saw edits revert while repeatedly adjusting
+centre. The capture shows two controller MIC-failure disconnects (0x3d), with
+continuous micro:bit uptime; each cancels the unsaved editor session and plays
+the falling tone. No changed-value save/store preceded either event. A global
+audio interrupt mask was found and removed; physical repeated-input verification
+is still needed. Ben requested the new ±360° range; its actual multi-turn travel
+and raw encoder continuity remain unverified on this bench.
+
+10:29:17 UTC follow-up flash succeeded. Fresh monitoring after 10:29:20 shows
+Eli reconnected, I2C 0 during repeated encoder polling, raw boot and current path
+position 0, defaults 20% / centre 0° / ±45°. Awaiting first input in that initial
+capture; no physical multi-turn sweep or repeated-adjustment check inferred.
 
 Evidence and historical results are in [container validation](bluepad-container-validation.md),
 [bench runsheet](xbox-bench-runsheet.md) and [PS2 investigation](receiver-investigation.md).

@@ -8,6 +8,11 @@
 static jmp_buf finished;
 static bool blocked, cancelled;
 static unsigned waits, starts, ends;
+static bool audio_irq_enabled;
+unsigned irq_lock(void) { assert(!"audio must not mask Bluetooth interrupts"); return 0; }
+void irq_unlock(unsigned key) { (void)key; assert(0); }
+void irq_enable(unsigned number) { assert(number==PWM1_IRQn); audio_irq_enabled=true; }
+void irq_disable(unsigned number) { assert(number==PWM1_IRQn); audio_irq_enabled=false; }
 int printk(const char *format,...) { (void)format; return 0; }
 uint32_t k_uptime_get_32(void) { return 0; }
 void k_msleep(int ms) { (void)ms; }
@@ -21,6 +26,7 @@ int k_msgq_put(struct k_msgq *queue,const void *data,int timeout) {
     memcpy(queue->data,data,queue->size); queue->occupied=true; return 0;
 }
 static void finish_playback(void) {
+    assert(audio_irq_enabled);
     unsigned index=0;
     while (pwm.running) {
         assert(index<1000);
@@ -60,6 +66,7 @@ void nrfx_pwm_irq_handler(nrfx_pwm_t *instance) { (void)instance; }
 uint32_t nrfx_pwm_complex_playback(nrfx_pwm_t *instance,const nrf_pwm_sequence_t *a,
                                   const nrf_pwm_sequence_t *b,uint16_t count,uint32_t flags) {
     assert(!instance->running && count==1 && (flags&NRFX_PWM_FLAG_LOOP));
+    assert(!audio_irq_enabled); // only PWM is masked during buffer preparation
     assert(a->length==256 && b->length==256);
     if (starts==0) assert(total==2240+speech_length[0]);
     else assert(starts==1 && total==speech_length[2]);
