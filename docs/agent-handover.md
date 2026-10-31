@@ -135,6 +135,21 @@ this idle interval is not repeated-input stress validation. Recorder left runnin
 
 ## What is already tested
 
+2026-10-31 10:34 UTC: Ben reports the latest changes are working well, with
+remaining slight centre inconsistency and unsmooth steering. The earlier capture
+contains an accepted/readback-verified save at uptime 140425 ms (100%, centre 42°,
+range ±90°), 78/78 audio completions and no observed MIC disconnects/restarts.
+Repeated returns to the same 42° target show encoder settling at 43.6° and 40.5°
+on different approaches; this is evidence of final-position spread, not a changing
+commanded centre. It does not distinguish gearbox play from onboard servo tolerance.
+That capture later logged I2C timeout -116 and ended; its physical cause is unknown.
+Recorder restarted at 10:34:08 UTC after stale transport, with fresh active/I2C-0
+telemetry. Current capture:
+`.cache/observations/2026-10-31T10-34-08-131Z-bluepad-session-fd64152f.jsonl`.
+No firmware change for this capture. Ben offered to demonstrate the remaining
+issue; compare slow/fast right-stick sweeps with three-second neutral pauses,
+left stick centred and settings closed. Physical smoothness needs his observation.
+
 Ben confirmed responsive/correct LED direction, both controllers together,
 independent and both-off reconnection, blue A override, both motors moving both
 directions, and corrected held continuous drive/position steering with either

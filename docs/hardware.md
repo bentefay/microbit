@@ -126,3 +126,11 @@ capture; no physical multi-turn sweep or repeated-adjustment check inferred.
 
 Evidence and historical results are in [container validation](bluepad-container-validation.md),
 [bench runsheet](xbox-bench-runsheet.md) and [PS2 investigation](receiver-investigation.md).
+
+2026-10-31 10:34 UTC: Ben reports the latest changes work well but steering centre
+varies slightly and motion is not completely smooth. Encoder telemetry from
+different returns to a fixed 42° target settles at 43.6° and 40.5°. No mechanical
+cause has been established; do not equate this with a drifting saved value.
+A fresh capture is running for a short steering-only demonstration. The earlier
+capture ended after I2C timeout -116; the new session reports I2C 0. Whether the
+timeout coincided with a physical power/connection change is unknown.
