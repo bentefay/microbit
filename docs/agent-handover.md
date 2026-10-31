@@ -150,6 +150,20 @@ No firmware change for this capture. Ben offered to demonstrate the remaining
 issue; compare slow/fast right-stick sweeps with three-second neutral pauses,
 left stick centred and settings closed. Physical smoothness needs his observation.
 
+Ben completed that demonstration and said it worked well; he suspects the centre
+changes across power cycles. In the new capture, centre 354° (path -6°), speed
+100%, range ±90° were saved/readback-verified at uptime 75496 ms. Subsequent
+neutral returns show small settling differences, then a stable -5.5° encoder
+reading against a -6° target, with no captured disconnect/restart or I2C fault.
+The boot-relative persistence scheme can reapply a correction from the next
+startup pose, so it cannot promise repeatable physical centre across restarts.
+This is a firmware reference limitation, not evidence that flash loses bytes.
+Next isolation test: mark the centred shaft, power off controller and both board
+supplies including USB without turning M2, restore board power/USB, then reconnect
+the controller and return steering to neutral. Compare boot raw, loaded values
+and physical centre before considering a reference-format change. No power-cycle
+result is yet recorded. Current pre-cycle boot raw is 0, live raw/path -55 tenths.
+
 Ben confirmed responsive/correct LED direction, both controllers together,
 independent and both-off reconnection, blue A override, both motors moving both
 directions, and corrected held continuous drive/position steering with either

@@ -134,3 +134,11 @@ cause has been established; do not equate this with a drifting saved value.
 A fresh capture is running for a short steering-only demonstration. The earlier
 capture ended after I2C timeout -116; the new session reports I2C 0. Whether the
 timeout coincided with a physical power/connection change is unknown.
+
+Ben completed the steering demonstration and reported it worked well; he now
+suspects changes across power-off/on cycles. Current saved centre is 354° (-6°
+path), range ±90°, speed 100%; save/readback succeeded. At neutral the encoder
+eventually stayed at -5.5° against the fixed -6° command. The present boot-relative
+offset can be reapplied from a new physical startup pose, so this format does
+not establish a repeatable physical centre. A full power cycle with M2 left
+untouched is the next isolation test; no outcome or absolute reference is assumed.

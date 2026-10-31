@@ -167,6 +167,16 @@ do not silently reinterpret existing offset records. A fresh factory reset uses
 offset zero. This preserves today's capture-at-boot behavior without pretending
 the encoder question is resolved.
 
+**Known limitation raised during testing:** storing a correction relative to
+startup does not preserve a physical calibration. Powering off at the adjusted
+centre can cause that correction to be applied again from the new startup pose.
+Parking centred alone does not remove this problem when a nonzero correction is
+saved. Ben's 10:35 UTC report suspects cross-power-cycle centre drift; a controlled
+restart with the shaft untouched is pending. A stable absolute encoder reference
+would permit absolute calibration; a power-on-relative encoder needs an explicit
+physical reference/homing or operator alignment procedure. Do not claim that
+nonvolatile storage of the number solves reference recovery.
+
 `BP_ENCODER,time,raw_tenths,boot_centre` repeats the boot capture every second so
 a monitor opened after flashing can recover it. It is not live shaft feedback.
 Power-cycle cue: note `rawTenths`, remove power from **both** micro:bit and Nezha
