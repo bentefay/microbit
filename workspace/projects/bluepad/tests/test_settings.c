@@ -12,7 +12,7 @@ static settings_event_t press(settings_ui_t *s,uint8_t key,uint32_t time) {
 }
 int main(void) {
     settings_ui_t s={.live=settings_defaults(359),.saved=settings_defaults(359)};
-    assert(settings_keys(&s,eli,SET_MENU_KEY,0)==SET_NONE && !s.seen);
+    assert(settings_keys(&s,eli,SET_MENU_KEY,0)==SET_NONE && !s.seen[0] && s.seen[1]);
     assert(settings_keys(&s,blue,SET_MENU_KEY|SET_UP_KEY,0)==SET_NONE);
     assert(settings_keys(&s,blue,SET_MENU_KEY|SET_UP_KEY,1000)==SET_NONE && !s.active);
     assert(press(&s,SET_MENU_KEY,1001)==SET_ENTER && s.active && s.selected==0);
@@ -41,7 +41,7 @@ int main(void) {
     assert(press(&s,SET_MENU_KEY,5081)==SET_SAVE && s.saved.speed==100 && !s.active);
     press(&s,SET_MENU_KEY,5082); press(&s,SET_DOWN_KEY,5083);
     assert(settings_cancel(&s)==SET_CANCEL && s.live.speed==100);
-    s.seen=false;
+    s.seen[0]=false;
     assert(settings_keys(&s,blue,SET_MENU_KEY,6000)==SET_NONE && !s.active);
     press(&s,SET_MENU_KEY,6001);
     press(&s,SET_DOWN_KEY,0xffffff00u);
@@ -66,11 +66,13 @@ int main(void) {
     uint8_t frame[25]; s.selected=0; s.live.speed=100;
     assert(settings_frame(&s,0,false,frame));
     for (unsigned i=0;i<25;i++) assert(frame[i]==0);
-    assert(settings_frame(&s,500,false,frame));
+    assert(settings_frame(&s,1000,false,frame));
     assert(frame[5]==180 && frame[0]==0); // first S column
-    assert(!settings_frame(&s,500,true,frame));
+    assert(!settings_frame(&s,1000,true,frame));
     for (unsigned i=0;i<25;i++) assert(frame[i]==180);
     assert(!settings_frame(&s,10000,false,frame));
+    assert(settings_frame(&s,6999,false,frame)); // SPEED now scrolls for 7 s
+    assert(!settings_frame(&s,7000,false,frame));
     s.selected=1; s.live.center=0; settings_frame(&s,0,true,frame);
     for (unsigned i=0;i<25;i++) assert(frame[i]==0);
     for (unsigned event=SET_ENTER;event<=SET_CANCEL;event++) {
@@ -95,4 +97,21 @@ int main(void) {
     input.abort=true; drive_plan(&control,&input,1);
     drive_configure(&control,100,180,80); input.abort=false; plan=drive_plan(&control,&input,1);
     assert(control.mode==DRIVE_ABORTED && !plan.speed && !plan.target);
+
+    for (int editor=0;editor<2;editor++) {
+        const uint8_t *pad=editor?eli:blue, *other=editor?blue:eli;
+        s=(settings_ui_t){.live=settings_defaults(0),.saved=settings_defaults(0)};
+        settings_keys(&s,pad,0,0); settings_keys(&s,other,0,0);
+        assert(settings_keys(&s,pad,SET_MENU_KEY,1)==SET_ENTER && s.editor==editor);
+        assert(settings_keys(&s,other,SET_MENU_KEY,2)==SET_NONE && s.active);
+        assert(settings_keys(&s,other,SET_UP_KEY,3)==SET_NONE && s.live.speed==20);
+        assert(settings_keys(&s,pad,SET_UP_KEY,4)==SET_UP && s.live.speed==25);
+        assert(settings_keys(&s,other,SET_VIEW_KEY,5)==SET_NONE && s.active);
+        assert(settings_leave(&s,other)==SET_NONE && s.active);
+        assert(settings_keys(&s,pad,SET_MENU_KEY,6)==SET_SAVE && s.saved.speed==25);
+        settings_keys(&s,pad,0,7); settings_keys(&s,pad,SET_MENU_KEY,8);
+        settings_keys(&s,pad,SET_DOWN_KEY,9);
+        assert(settings_leave(&s,pad)==SET_CANCEL && !s.active && s.live.speed==25);
+        assert(settings_keys(&s,pad,SET_MENU_KEY,10)==SET_NONE && !s.active); // reconnect-held
+    }
 }

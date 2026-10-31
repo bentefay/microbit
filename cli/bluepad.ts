@@ -149,12 +149,12 @@ export async function bluepad(root: string, args: string[], command: Command, va
   const imageId = metadata.Id;
   const run = (argv: string[], capture = false) => command(['docker', 'run', ...bluepadArgs(root, output), imageId, ...argv], capture);
   if (action === 'test') {
-    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'controller_roles', 'display_owner', 'motor_bench', 'motor_control', 'settings', 'settings_runtime']) {
+    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'controller_roles', 'display_owner', 'motor_bench', 'motor_control', 'settings', 'settings_runtime', 'settings_audio']) {
     await run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-g',
       '-I/app/app', '-I/app/tests/stubs', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
     await run([`/build/test-${name}`]);
     }
-    console.log('Nine Bluepad native suites passed inside the offline container (ASan/UBSan), including settings controls, feedback, persistence and motor integration.');
+    console.log('Ten Bluepad native suites passed inside the offline container (ASan/UBSan), including settings controls, audio queue/playback, persistence and motor integration.');
     return;
   }
   // Never leave a prior success receipt after a failed rebuild.

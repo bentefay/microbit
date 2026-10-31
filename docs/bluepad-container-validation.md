@@ -1,5 +1,36 @@
 # Bluepad container integration validation
 
+## Settings follow-up, 2026-10-31 10:19 UTC
+
+Ben reported silent audio, overly fast scrolling, and requested both controllers'
+Menu support and writes only when settings change. Fixed the audio worker exiting
+when queue purge woke its blocked reader with `-ENOMSG`; requests now replace
+only queued obsolete items and the worker survives interrupted reads. Added
+started/completed playback telemetry. Scroll timing is 200 ms/column. Either
+commissioned controller can open settings; that editor owns its controls,
+repeat-liveness probes and rumble until exit. Settings writes compare accepted
+values and actual encoded TLV bytes, including retries and restored edits.
+
+68 CLI tests / 788 assertions and ten native ASan/UBSan suites passed. New native
+audio coverage executes the real adapter with a blocked reader, interrupted wait,
+coalesced requests and two playback completions. Settings tests cover both editor
+identities, unrelated disconnects, unchanged/changed-back saves, reverted pending
+saves and matching-record retries. Motor-drive and report-only builds passed.
+Motor-drive text/data/BSS: 302740/1456/54922 bytes.
+
+Verified motor-drive HEX:
+`d588d814ef607fa401756d1cfbb9f370536ae3a11e9ab732ccfa2dcf144b1be9`.
+Monitor was stopped, the authorized repo flash completed at 10:19:46 UTC with
+same-device remount and no `FAIL.TXT`, and monitoring restarted at 10:19:47 UTC.
+Capture: `.cache/observations/2026-10-31T10-19-47-798Z-bluepad-session-01df1774.jsonl`.
+Fresh heartbeat shows I2C 0, M1 stopped awaiting input, raw encoder 5 tenths,
+audio status 0 and playback starts/completions 0/0. No connected controllers in
+the initial observation. Ben's earlier accepted 100% speed was not retained by
+the flash: settings are 20% / centre 0° / ±45°, pending false. Treat DAPLink
+reflash separately from normal save/power-cycle persistence. Audible output,
+rumble, persistence/reset on hardware and encoder reference remain unverified.
+Ben's connection to Nezha and earlier I2C 0 supersede the initial fault below.
+
 ## Settings mode, 2026-10-31
 
 Implemented blue-only live speed/centre/range settings, scrolling/bar display,

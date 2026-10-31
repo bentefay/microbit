@@ -6,7 +6,7 @@ power cycles and the encoder reference still need Ben's bench check.
 
 ## Goal
 
-Tune three motor settings from the blue Xbox controller, without reflashing,
+Tune three motor settings from either commissioned Xbox controller, without reflashing,
 saved across power cycles. Settings apply live while both sticks still drive and
 steer, so each change can be tested immediately.
 
@@ -21,11 +21,14 @@ more aggressive than the current one. Steering range is hard-capped at ±80°:
 M2 uses shortest-path absolute positioning (`0x5d`), so a total sweep near 180°
 could make a fast full-left→full-right flick rotate the wrong way round.
 
-## Controls (blue controller only)
+## Controls (either commissioned controller)
 
-Only the blue controller (stable identity in `controller_roles.h`) can enter or
-operate settings mode. Eli's controller keeps its normal driving behaviour and
-cannot change settings. Blue A (override) and B (split/either toggle) keep their meanings.
+Either blue or Eli's controller (stable identities in `controller_roles.h`) can
+open settings. The controller that opens it owns that session: its Menu saves,
+View cancels and D-pad adjusts. The other controller keeps normal driving but its
+settings buttons cannot interfere until the session ends. This supersedes the
+original blue-only restriction at Ben's request. Blue A (override) and each
+controller's B (split/either toggle) keep their meanings.
 
 - **Menu (≡)** = Bluepad32 `MISC_BUTTON_START`: enter settings mode; press again to
   **save and exit**.
@@ -38,7 +41,7 @@ cannot change settings. Blue A (override) and B (split/either toggle) keep their
   Clamp at limits (centre wraps).
 - Use edge detection like the existing held-button handling: a button already
   held on the first report must be released before it acts.
-- Disconnecting the blue controller while in settings mode cancels (reverts) and
+- Disconnecting the editing controller while in settings mode cancels (reverts) and
   exits. Micro:bit A+B abort still latches stop as today.
 - **Factory reset:** holding micro:bit button A during boot restores defaults
   (and saves them after successful stop commands to both motors). Release A after
@@ -74,7 +77,7 @@ selected (on entry and on each left/right). Clips are Kokoro-82M, voice
 buzz at a limit, rising chirp on entry, two-note confirmation on save, falling
 tone on cancel.
 
-**Rumble** (blue controller): short buzz per step, stronger at a limit, distinct
+**Rumble** (editing controller): short buzz per step, stronger at a limit, distinct
 patterns for enter/save/cancel.
 
 Implemented feedback: entry = rising 140 ms chirp followed by “Speed”, plus a
@@ -87,7 +90,7 @@ disconnected controller. Factory reset plays the save tone, with the normal
 display and no rumble request. A/B, sticks and A+B do not gain extra sounds or
 rumbles. No extra demonstration movement is introduced.
 
-Names scroll at 100 ms per column, once, then the bar fills from the bottom left
+Names scroll at **200 ms per column** (half the original speed), once, then the bar fills from the bottom left
 across each row to the top. The 25 LEDs represent 0–100%, 0–359°, or 0–80°;
 minimum speed/range still light a few pixels, while 0° is blank. It is deliberately
 coarse, not a numerical readout. Up/down (including a limit press) immediately
@@ -121,6 +124,11 @@ speech/tones. Exit immediately restores the usual ownership/input display.
   Cancel reverts to the last **accepted** save in this boot, even if that save is
   still pending. Re-entering settings pauses a pending write. Power loss before
   `stored` may retain the previous record. Unchanged saves do not write flash.
+  Changing values and restoring them before saving also does not write, including
+  reverting an earlier deferred save. The adapter checks both the cached values
+  and actual encoded TLV bytes before calling `store_tag`, so retries cannot append
+  an already-matching record. Repeating factory reset when a valid default record
+  exists is a no-op as well.
 - Endurance is not a practical concern (append-only records; ~10,000 erase cycles per page).
 - Whether a DAPLink reflash preserves the storage partition is unverified (bonds
   have survived resets, not necessarily reflashes). Record what happens.
@@ -165,7 +173,7 @@ Record the observation before changing persistence semantics.
   client is busy (for example, during the `0x2a4a` liveness probe). Don't rumble
   while a probe is pending, or send the output report yourself from a static buffer.
   Implemented: immutable static report payloads, hardware-bounded durations and
-  repeat counts, sent on the BTstack thread only, deferred while blue's probe is
+  repeat counts, sent on the BTstack thread only, deferred while the editor's probe is
   pending. No upstream rumble timer callback is used. Unsent feedback expires
   after 500 ms. A successful HIDS enqueue is not physical rumble verification.
 - Speaker: P0.00, board DTS `buzzer0` on `&pwm1` ch0 (inverted). LED matrix uses
@@ -201,9 +209,9 @@ The candidates remain playable under `audio/candidates/af_heart/` and
 
 `run test` covers WAV validation, deterministic PCM hashes, conservative trimming,
 normalization, alias rejection, and settings/encoder/audio monitor parsing.
-Final run: 68 CLI tests / 785 assertions passed. Host mount recovery additionally
+Follow-up run: 68 CLI tests / 788 assertions passed. Host mount recovery additionally
 checks the exact USB parent before asking udisks to mount only a FAT volume.
-`run bluepad test` runs nine native suites under ASan/UBSan. Settings coverage
+`run bluepad test` runs ten native suites under ASan/UBSan. Settings coverage
 includes identity, connection-held keys, repeat timing/wrap and stale stop,
 limits/wrapping, save/cancel/disconnect, CRC corruption/range checks, scroll/bar,
 bounded feedback, live planner re-emission, and the real settings adapter with
@@ -212,7 +220,9 @@ unchanged-save suppression, readback failure/retry, reboot load, factory reset).
 
 `BP_SETTINGS,time,event,active,selected,speed,centre,range,pending` carries exact
 values. `BP_AUDIO,time,init|status,result,16000` reports audio driver initialization
-or stop failure. `BP_RUMBLE,time,event,result` records successful enqueue. None
+or stop failure. `BP_AUDIO_PLAY,time,started,completed` reports playback progress
+(a replaced clip does not count as completed).
+`BP_RUMBLE,time,event,result,slot` records successful enqueue to the editing pad. None
 of these proves visible LEDs, intelligible speech, felt rumble or physical motion.
 Bench feedback, actual save/reboot/reset behavior, flash-bank migration under
 load, radio-loss timing during feedback and DAPLink preservation of MBST remain
@@ -237,3 +247,36 @@ restarted at 08:38:17 UTC and again observed live scanning plus I2C `-5`. No
 physical readiness is claimed. If removing USB for the encoder test ends the
 recorder, restart `run bluepad monitor` after reconnecting; its repeated boot
 capture makes the initial serial lines unnecessary.
+
+## Follow-up: sound, scrolling and both controllers
+
+Ben subsequently connected the micro:bit to Nezha and reported no sound and overly
+fast scrolling. Fresh monitoring at 10:13 UTC showed both controllers connected,
+I2C result 0, boot encoder raw 0, and accepted speed 100% / centre 0° / range ±45°.
+This supersedes the initial unavailable-Nezha observation above; it does not
+resolve the encoder power-cycle question or prove physical motion.
+
+The silent-audio cause was in our queue handling: every request called
+`k_msgq_purge`, which wakes a blocked reader with `-ENOMSG`; the audio worker's
+`while (get == 0)` then returned permanently. Initialization status remained 0.
+Pinned source: Zephyr `c425eabae5724d39fdd828d31ec35dc850795fe1`,
+`kernel/msg_q.c:z_impl_k_msgq_purge`, lines 501–523. The fix replaces only already
+queued requests and keeps the worker alive after interrupted reads. Native tests
+now exercise the real audio adapter with that blocked-reader behavior plus
+first/second playback completion. Playback counters make this failure visible.
+Scroll speed is halved, and either known controller may open its own session.
+Both identities retain first-report held-button suppression and disconnect cancel;
+only the editor's peer responses keep its D-pad repeats alive.
+
+Follow-up builds and all ten native sanitizer suites passed. Motor-drive
+text/data/BSS is 302740/1456/54922 bytes; report-only remains
+245316/1280/49653. Verified motor-drive HEX:
+`d588d814ef607fa401756d1cfbb9f370536ae3a11e9ab732ccfa2dcf144b1be9`.
+Authorized flash completed at 10:19:46 UTC, same-device remount, no `FAIL.TXT`;
+monitor restarted at 10:19:47 UTC. Fresh heartbeat: I2C 0, M1 stopped awaiting
+input, encoder raw 5 tenths, audio status 0, playback counters 0/0. Settings are
+20% / centre 0° / ±45°, pending false: **the previous accepted 100% speed was not
+retained through this DAPLink flash**. Ordinary save/power-cycle persistence
+still needs its physical check; builds and normal restarts are distinct from
+reflashing. No controllers were connected in the initial observation and no
+audio action had been requested. The fix's audible output remains unverified.

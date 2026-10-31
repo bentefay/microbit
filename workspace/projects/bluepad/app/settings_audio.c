@@ -15,9 +15,14 @@ static uint16_t buffers[2][256]; // EasyDMA requires static RAM, never flash/sta
 static nrf_pwm_sequence_t sequence[2];
 static audio_request_t current;
 static unsigned cursor, played, total, tone_samples;
-static bool speech;
+static bool speech, playing;
 static atomic_t audio_result=-EAGAIN;
+static atomic_t audio_started, audio_completed;
 int settings_audio_status(void) { return (int)atomic_get(&audio_result); }
+void settings_audio_telemetry(uint32_t now) {
+    printk("BP_AUDIO,%u,status,%d,16000\n",now,settings_audio_status());
+    printk("BP_AUDIO_PLAY,%u,%ld,%ld\n",now,(long)atomic_get(&audio_started),(long)atomic_get(&audio_completed));
+}
 static uint16_t next_sample(void) {
     int value=0;
     if (cursor<tone_samples) value=audio_tone(current.event,cursor);
@@ -31,16 +36,23 @@ static void fill(unsigned index) {
 }
 static void event_handler(nrfx_pwm_event_type_t event, void *context) {
     (void)context;
+    if (event==NRFX_PWM_EVENT_STOPPED) { playing=false; return; }
     if (event!=NRFX_PWM_EVENT_END_SEQ0 && event!=NRFX_PWM_EVENT_END_SEQ1) return;
+    if (!playing) return;
     played+=256;
-    if (played>=total) { nrfx_pwm_stop(&pwm,false); return; }
+    if (played>=total) { playing=false; atomic_inc(&audio_completed); nrfx_pwm_stop(&pwm,false); return; }
     fill(event==NRFX_PWM_EVENT_END_SEQ0?0:1);
 }
 static void pwm_interrupt(const void *arg) { (void)arg; nrfx_pwm_irq_handler(&pwm); }
 void settings_audio(settings_event_t event, unsigned selected) {
     audio_request_t request={event,selected};
-    k_msgq_purge(&audio_queue); // rapid navigation/steps replace obsolete speech
-    k_msgq_put(&audio_queue,&request,K_NO_WAIT);
+    // Never purge a queue with a blocked reader: Zephyr wakes that reader with
+    // -ENOMSG. Replace only a queued obsolete request, not the waiting worker.
+    if (k_msgq_put(&audio_queue,&request,K_NO_WAIT)!=0) {
+        audio_request_t obsolete;
+        k_msgq_get(&audio_queue,&obsolete,K_NO_WAIT);
+        k_msgq_put(&audio_queue,&request,K_NO_WAIT);
+    }
 }
 static void audio_worker(void *a, void *b, void *c) {
     (void)a; (void)b; (void)c;
@@ -57,10 +69,11 @@ static void audio_worker(void *a, void *b, void *c) {
         sequence[i].values.p_common=buffers[i]; sequence[i].length=256;
     }
     audio_request_t request;
-    while (k_msgq_get(&audio_queue,&request,K_FOREVER)==0) {
+    for (;;) {
+        if (k_msgq_get(&audio_queue,&request,K_FOREVER)!=0) continue;
         // Expected stop is one 62.5 us period. Bound even this low-priority
         // worker's wait so a peripheral fault cannot leave it spinning forever.
-        nrfx_pwm_stop(&pwm,false);
+        if (!nrfx_pwm_stopped_check(&pwm)) nrfx_pwm_stop(&pwm,false);
         unsigned waited=0;
         while (!nrfx_pwm_stopped_check(&pwm) && waited++<10) k_msleep(1);
         if (!nrfx_pwm_stopped_check(&pwm)) { atomic_set(&audio_result,-ETIMEDOUT); continue; }
@@ -71,8 +84,12 @@ static void audio_worker(void *a, void *b, void *c) {
         tone_samples=audio_tone_ms(current.event)*16;
         total=tone_samples+(speech?speech_length[current.selected]:0);
         fill(0); fill(1);
-        if (total) nrfx_pwm_complex_playback(&pwm,&sequence[0],&sequence[1],1,
-            NRFX_PWM_FLAG_LOOP|NRFX_PWM_FLAG_SIGNAL_END_SEQ0|NRFX_PWM_FLAG_SIGNAL_END_SEQ1|NRFX_PWM_FLAG_NO_EVT_FINISHED);
+        if (total) {
+            playing=true;
+            atomic_inc(&audio_started);
+            nrfx_pwm_complex_playback(&pwm,&sequence[0],&sequence[1],1,
+                NRFX_PWM_FLAG_LOOP|NRFX_PWM_FLAG_SIGNAL_END_SEQ0|NRFX_PWM_FLAG_SIGNAL_END_SEQ1|NRFX_PWM_FLAG_NO_EVT_FINISHED);
+        }
         irq_unlock(key);
     }
 }

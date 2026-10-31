@@ -12,11 +12,16 @@ test('settings monitor distinguishes pending RAM saves, verified storage and boo
   expect(m.encoder?.rawTenths).toBe(-10);
   m.push('BP_AUDIO,10003,status,0,16000', 3);
   expect(m.audio?.result).toBe(0);
+  m.push('BP_AUDIO_PLAY,10003,2,1', 3);
+  expect(m.audioPlayback).toMatchObject({ started: 2, completed: 1 });
+  m.push('BP_AUDIO_PLAY,10004,2,3', 4);
+  expect(m.audioPlayback?.completed).toBe(1);
   m.push('BP_SETTINGS,10004,status,0,1,101,359,45,0', 4);
   expect(m.settings?.speed).toBe(25);
   expect(m.push('BP_SETTINGS,10005,store-error,0,1,25,359,45,1', 5)).toContain('verification failed');
   m.push('BP_STATUS,1,1000,scanning,0,0', 6);
   expect(m.settings).toBeNull(); expect(m.encoder).toBeNull(); expect(m.audio).toBeNull();
+  expect(m.audioPlayback).toBeNull();
 });
 
 test('continuous motor status tracks commands, stale stop and firmware restart', () => {

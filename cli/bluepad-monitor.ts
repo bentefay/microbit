@@ -13,6 +13,7 @@ export class BluepadMonitor {
   settings: { deviceMs: number; event: string; active: boolean; selected: number; speed: number; center: number; range: number; pending: boolean } | null = null;
   encoder: { deviceMs: number; rawTenths: number; bootCenter: number } | null = null;
   audio: { deviceMs: number; result: number; rate: number } | null = null;
+  audioPlayback: { deviceMs: number; started: number; completed: number } | null = null;
   motor: { state: string; step: number; result: number; deviceMs: number } | null = null;
   drive: { state: string; owner: number; speed: number; target: number; center: number;
     writes: number; result: number; livenessAgeMs: number; maxIoMs: number; deviceMs: number } | null = null;
@@ -40,6 +41,9 @@ export class BluepadMonitor {
     }
     if (p[0] === 'BP_AUDIO' && p.length === 5 && /^\d+$/.test(p[1]) && ['init', 'status'].includes(p[2]) && /^-?\d+$/.test(p[3]) && p[4] === '16000') {
       this.audio = { deviceMs: Number(p[1]), result: Number(p[3]), rate: Number(p[4]) }; return;
+    }
+    if (p[0] === 'BP_AUDIO_PLAY' && p.length === 4 && p.slice(1).every(x => /^\d+$/.test(x)) && Number(p[3]) <= Number(p[2])) {
+      this.audioPlayback = { deviceMs: Number(p[1]), started: Number(p[2]), completed: Number(p[3]) }; return;
     }
     if (p[0] === 'BP_DRIVE' && p.length === 11 &&
       ['waiting', 'input', 'neutral', 'active', 'stale', 'aborted', 'fault'].includes(p[2]) &&
@@ -73,7 +77,7 @@ export class BluepadMonitor {
       if (uptime < this.uptime || p[3] === 'waiting') {
         this.lastInput = null;
         this.sawStart = false;
-        if (uptime < this.uptime) { this.motor = null; this.drive = null; this.settings = null; this.encoder = null; this.audio = null; }
+        if (uptime < this.uptime) { this.motor = null; this.drive = null; this.settings = null; this.encoder = null; this.audio = null; this.audioPlayback = null; }
       }
       this.uptime = uptime;
       this.lastStatusAt = hostMs;
@@ -138,7 +142,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE|SETTINGS|ENCODER|AUDIO),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE|SETTINGS|ENCODER|AUDIO|AUDIO_PLAY),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

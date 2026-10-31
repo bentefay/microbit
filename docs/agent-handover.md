@@ -30,14 +30,19 @@ controllers using the micro:bit radio. No ESP32 bridge is part of this setup.
 - Default build is report-only and motor-free. `--motor-drive` explicitly selects
   continuous control; `--motor-bench` is the separate finite four-jog test and
   still requires a front-button press. Do not flash the wrong variant.
-- Motor-drive now has blue-only Menu/View/D-pad settings, live speed (5–100%,
+- Motor-drive now has Menu/View/D-pad settings on **both known controllers**, live speed (5–100%,
   default 20%), centre (0–359°, 2° wrap) and range (±5–80°, default ±45°).
-  Menu enters/saves, View or blue disconnect cancels; names scroll and speak,
+  Menu enters/saves, View or the editor's disconnect cancels; names scroll and speak,
   up/down skips to a value bar, tones/rumble distinguish actions. Sticks and A/B
   mappings keep working. See [full UX and decisions](settings-mode.md).
+  The opener owns the settings session; the other pad's settings buttons are
+  ignored until exit. Rumble and repeat-liveness probes follow that editor by
+  stable identity. Text scrolls at 200 ms/column (half the initial speed).
 - MBST v1 + CRC32 saves only changed accepted values, after an I2C-worker
   stop/hold handshake. Centre both control sticks and wait for `stored` before
   removing power. A at boot restores defaults; A+B still latches stop.
+  Unchanged saves and edits restored before saving perform no settings write;
+  the encoded bytes are also compared to the actual TLV record before appending.
 - Encoder reference remains unverified. v1 deliberately persists centre as an
   offset from the boot reading; park centred before power-off. `BP_ENCODER`
   repeats the raw boot capture (not a live read). Ben's one power-cycle/hand-turn
@@ -73,6 +78,32 @@ same I2C fault were observed. Current capture:
 Monitor is left running; this is a recorder, not continued agent supervision.
 After the full USB-removal encoder test, restart it with `run bluepad monitor`
 if the serial transport exits on disconnect.
+
+Follow-up, 2026-10-31 10:13 UTC: **Ben has connected the micro:bit to Nezha**.
+Fresh telemetry now shows I2C result **0**, normal active planner state with
+M1 speed 0, boot raw encoder **0**, and both controllers connected. Accepted
+settings at capture were 100% speed, centre 0°, ±45° range. The earlier fault
+is superseded; physical motion and encoder reference are still not inferred.
+Ben reported silent audio and overly fast text. Root cause: our unconditional
+`k_msgq_purge` woke the blocked audio reader with `-ENOMSG`, causing the worker
+to return permanently while status remained 0. The fix replaces queued items
+without purging readers and keeps receiving after interruptions. A native audio
+adapter regression models this case; `BP_AUDIO_PLAY` adds started/completed
+playback counters so initialization alone no longer masquerades as playback.
+
+Follow-up verification: 68 CLI tests / 788 assertions, ten native ASan/UBSan
+suites, motor-drive and report-only builds passed. The current motor-drive HEX is
+`d588d814ef607fa401756d1cfbb9f370536ae3a11e9ab732ccfa2dcf144b1be9`.
+Authorized flash completed at **2026-10-31 10:19:46 UTC**, same-device remount,
+no `FAIL.TXT`. Monitor restarted at 10:19:47 UTC; capture:
+`.cache/observations/2026-10-31T10-19-47-798Z-bluepad-session-01df1774.jsonl`.
+Fresh heartbeat shows I2C 0, M1 stopped awaiting input, boot raw encoder **5**
+tenths, centre 0°, audio status 0 and playback counters 0/0. No controllers were
+connected in the initial post-flash observation. **This flash did not retain the
+previous accepted 100% speed: settings are now 20% / 0° / ±45°, pending false.**
+Do not promise DAPLink preservation. This is not the requested unpowered shaft-turn
+encoder experiment. Speech/tones and rumble still need physical confirmation.
+Monitor remains running as a recorder.
 
 ## What is already tested
 
@@ -162,6 +193,9 @@ saved captures. `BP_STATUS` button mask zero means automatic startup, not A+B.
 `BP_SETTINGS` contains exact settings plus pending-save state; `stored` records
 successful write/readback. `BP_ENCODER` repeats raw tenths and boot centre;
 `BP_AUDIO` reports PWM readiness. The monitor's live JSON includes all three.
+`BP_AUDIO_PLAY` adds playback starts/completions as `audioPlayback` in live JSON;
+it proves DMA progress, not audible speaker output. `BP_RUMBLE` now includes
+the receiving slot after its result field.
 Speech candidates live under `workspace/projects/bluepad/audio/candidates/`
 (`af_heart`, `af_bella`). `run tts firmware VOICE` converts an existing candidate
 without Docker/downloads; `run tts generate` regenerates WAVs in the pinned,

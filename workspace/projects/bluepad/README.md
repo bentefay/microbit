@@ -113,15 +113,18 @@ reports requested outputs and I2C completion status at 5 Hz. Stable demands shou
 leave the write counter unchanged. Position fields are modulo 360; the target is
 not measured shaft position. The live monitor saves this alongside both controllers.
 
-### Blue-controller settings (motor-drive only)
+### Controller settings (motor-drive only)
 
-Menu enters at Speed; Menu again accepts and exits. View cancels to the last
-accepted save; losing blue also cancels. Left/right cycle Speed, Steering centre,
+Either commissioned controller's Menu enters at Speed; that controller's Menu
+again accepts and exits. It owns the settings session: the other controller's
+Menu/View/D-pad cannot interfere. View cancels to the last
+accepted save; losing the editor also cancels. Left/right cycle Speed, Steering centre,
 Steering range. Up/down change immediately (400 ms hold delay, 150 ms repeats).
 The sticks, blue A override and each controller's B mapping toggle remain active.
-Settings take over the matrix with scrolling names then a 25-pixel level bar;
+Settings take over the matrix with scrolling names at 200 ms per column (half
+the original speed), then a 25-pixel level bar;
 up/down skips the scroll. The speaker says each name and plays action tones;
-blue gets brief action/limit/enter/save/cancel rumble. Full UX and safety details:
+the editor gets brief action/limit/enter/save/cancel rumble. Full UX and safety details:
 [settings mode](../../../docs/settings-mode.md).
 
 Defaults remain 20% speed and ±45° travel; ranges are 5–100%/5%, centre 0–359°/2°
@@ -136,12 +139,17 @@ readback. New inputs cannot resume a motor until the hold is released. A failed
 stop prevents storage; a failed readback retries after five seconds. Holding
 micro:bit A at boot resets defaults, plays the confirmation tone and requests
 the same guarded save. Bonds are not deleted. A+B still latches motor stop.
+Unchanged saves, edits restored before save, repeated default resets and pending
+saves reverted to the stored values do not write. Immediately before any append,
+the encoded record is compared with the actual TLV bytes, including on retries.
 
 `BP_SETTINGS,time,event,active,selected,speed,centre,range,pending` reports exact
 values (selected 0/1/2). `stored` means record readback matched; `save` may still
 be pending. `BP_ENCODER,time,raw_tenths,boot_centre` repeats the single boot capture,
 not a live encoder poll. `BP_AUDIO,time,init|status,result,16000` reports PWM status.
-`BP_RUMBLE,time,event,result` means output report accepted, not felt feedback.
+`BP_RUMBLE,time,event,result,slot` means output report accepted for the editing
+controller, not felt feedback. `BP_AUDIO_PLAY,time,started,completed` distinguishes
+DMA playback progress from initialization; replaced clips do not count as completed.
 The live JSON monitor includes settings/encoder/audio fields.
 
 Speech is checked-in unsigned 8-bit PCM at 16 kHz, streamed via nrfx PWM1/P0.00
@@ -159,6 +167,11 @@ updates `app/speech_data.h` plus `audio/firmware.json`; then rebuild explicitly.
 Native sanitizer tests cover the planner, UI/CRC/display/feedback and real settings
 adapter against fake TLV/motor interfaces, including deferred writes, stale
 acknowledgements, cancellation, failures, reboot loading and factory reset.
+The audio adapter regression models Zephyr's blocked-reader queue behavior:
+purging an empty queue wakes its reader with `-ENOMSG`, which previously ended
+the audio worker at the first sound request. Requests now replace only queued
+items; the worker survives interrupted receives. The regression exercises first
+playback, completion, an interrupted wait and rapid navigation coalescing.
 
 ### Finite loose-motor variant
 

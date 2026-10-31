@@ -9,9 +9,10 @@ typedef struct { int speed, center, range; } motor_settings_t;
 typedef enum { SET_NONE, SET_ENTER, SET_SELECT, SET_UP, SET_DOWN, SET_LIMIT, SET_SAVE, SET_CANCEL } settings_event_t;
 typedef struct {
     motor_settings_t live, saved;
-    bool active, seen;
+    bool active, seen[2];
     unsigned selected;
-    uint8_t held, blocked, repeat;
+    int editor;
+    uint8_t held[2], blocked[2], repeat;
     uint32_t repeat_at;
 } settings_ui_t;
 // Internal masks deliberately match Bluepad32's D-pad; Menu/View occupy bits 4/5.
@@ -41,17 +42,19 @@ static inline settings_event_t settings_adjust(settings_ui_t *s, int direction) 
     return direction > 0 ? SET_UP : SET_DOWN;
 }
 static inline settings_event_t settings_keys(settings_ui_t *s, const uint8_t address[6], uint8_t keys, uint32_t now) {
-    if (!controller_is_supervisor(address)) return SET_NONE;
-    if (!s->seen) { s->seen = true; s->held = s->blocked = keys; return SET_NONE; }
-    s->blocked &= keys;
-    uint8_t pressed = keys & ~s->held & ~s->blocked;
-    s->held = keys;
+    int pad=controller_settings_index(address);
+    if (pad<0) return SET_NONE;
+    if (!s->seen[pad]) { s->seen[pad] = true; s->held[pad] = s->blocked[pad] = keys; return SET_NONE; }
+    s->blocked[pad] &= keys;
+    uint8_t pressed = keys & ~s->held[pad] & ~s->blocked[pad];
+    s->held[pad] = keys;
+    if (s->active && s->editor!=pad) return SET_NONE;
     if ((keys & 3) != s->repeat) s->repeat = 0;
     if (pressed & SET_VIEW_KEY) return settings_cancel(s);
     if (pressed & SET_MENU_KEY) {
         s->repeat = 0;
         if (s->active) { s->active = false; s->saved = s->live; return SET_SAVE; }
-        s->active = true; s->selected = 0; return SET_ENTER;
+        s->active = true; s->selected = 0; s->editor=pad; return SET_ENTER;
     }
     if (!s->active) return SET_NONE;
     if ((pressed & 12) && (keys & 12) != 12) {
@@ -64,6 +67,12 @@ static inline settings_event_t settings_keys(settings_ui_t *s, const uint8_t add
         return settings_adjust(s, s->repeat == SET_UP_KEY ? 1 : -1);
     }
     return SET_NONE;
+}
+static inline settings_event_t settings_leave(settings_ui_t *s, const uint8_t address[6]) {
+    int pad=controller_settings_index(address);
+    if (pad<0) return SET_NONE;
+    s->seen[pad]=false; s->held[pad]=s->blocked[pad]=0;
+    return s->active && s->editor==pad ? settings_cancel(s) : SET_NONE;
 }
 static inline settings_event_t settings_repeat(settings_ui_t *s, uint32_t now, bool fresh) {
     if (!fresh) s->repeat = 0;

@@ -21,6 +21,7 @@ bool motor_drive_save_ready(void) { return fake_ready; }
 void joystick_matrix_frame(const uint8_t frame[25]) { assert(frame); }
 void settings_audio(settings_event_t event, unsigned selected) { assert(event!=SET_NONE && selected<3); sound_calls++; }
 int settings_audio_status(void) { return 0; }
+void settings_audio_telemetry(uint32_t now) { (void)now; }
 static int fake_get(void *ctx,uint32_t tag,uint8_t *data,uint32_t size) {
     (void)ctx; assert(tag==SETTINGS_TAG);
     if (!data) { assert(size==0); return (int)fake_size; }
@@ -57,6 +58,8 @@ int main(void) {
     keys(0,4); keys(1,0); keys(0,2); assert(applied.speed==25 && !settings_active());
     tick(); assert(store_calls==1); // cancel never writes
     keys(0,4); keys(0,4); tick(); assert(store_calls==1); // unchanged save never writes
+    keys(0,4); keys(1,0); keys(2,0); keys(0,4); tick();
+    assert(store_calls==1); // edited then restored before save: no flash write
     keys(0,4); keys(1,0); keys(0,4); tick();
     assert(!fake_requested && store_calls==1); // stale acknowledgement cannot authorize a new save
     fake_ready=false; tick(); assert(fake_requested);
@@ -77,4 +80,25 @@ int main(void) {
     initialized=false; settings_init(true); tick(); assert(applied.speed==20 && fake_requested);
     fake_ready=true; tick(); assert(store_calls==4);
     assert(settings_decode(fake_record,fake_size,350,&stored) && stored.speed==20 && stored.range==45);
+    fake_ready=false;
+    // A value accepted earlier but still pending is also cancelled if changed
+    // back to flash's value before its stop acknowledgement arrives.
+    keys(0,4); keys(1,0); keys(0,4); tick(); assert(fake_requested);
+    keys(0,4); keys(2,0); keys(0,4); tick(); assert(!fake_requested && store_calls==4);
+    // If flash already holds a requested record (e.g. retry after an ambiguous
+    // readback), do not append another copy even with a stale cached baseline.
+    keys(0,4); keys(1,0); keys(0,4); tick(); assert(fake_requested);
+    settings_encode((motor_settings_t){25,350,45},350,fake_record);
+    fake_ready=true; tick(); assert(store_calls==4 && !fake_requested);
+    initialized=false; fake_ready=false; settings_init(true); tick();
+    fake_ready=true; tick(); assert(store_calls==5);
+    initialized=false; fake_ready=false; settings_init(true); tick();
+    assert(store_calls==5 && !fake_requested); // repeated reset at defaults is also a no-op
+    const uint8_t eli[6]={0x5c,0xba,0x37,0x67,0x7f,0xda};
+    settings_input(eli,0,0,fake_time++); settings_input(eli,0,4,fake_time++);
+    assert(settings_active() && settings_controller(eli) && !settings_controller(blue));
+    keys(0,2); assert(settings_active()); // other controller cannot cancel
+    settings_disconnect(blue); assert(settings_active());
+    settings_input(eli,0,0,fake_time++); settings_input(eli,0,4,fake_time++);
+    tick(); assert(!settings_active() && store_calls==5); // Eli can save unchanged too
 }

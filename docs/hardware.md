@@ -66,7 +66,7 @@ were physically confirmed working. This describes the recorded bench, not a
 guarantee that a later session still has the same physical setup.
 
 Native motor-drive defaults to M1 ±20% continuous speed and M2 ±45° around its startup
-encoder position, at 15% positioning speed. Blue-controller settings can change
+encoder position, at 15% positioning speed. Either controller's settings can change
 the drive cap to 5–100%, centre in 2° steps and travel to ±5–80° in 5° steps.
 The ±80° hard cap keeps the total steering sweep below 180° for shortest-path
 positioning; it is not a measured linkage limit. These are loose-shaft bench limits,
@@ -78,7 +78,7 @@ steering travel or vehicle weight have been documented. Measure linkage centre
 and limits before chassis operation; do not discover limits by forcing stops.
 
 The built-in speaker is now driven on P0.00 with nrfx PWM1 at 16 kHz for settings
-speech/tones; the LED matrix keeps PWM0/TIMER4. The blue Xbox receives finite BLE
+speech/tones; the LED matrix keeps PWM0/TIMER4. The editing Xbox receives finite BLE
 rumble feedback. Audible/visible/tactile operation still needs physical testing.
 While settings are open, the matrix shows scrolling names then a coarse value
 bar; ordinary input display returns on exit. No additional wiring is required.
@@ -95,6 +95,21 @@ but motor initialization returns I2C `-5`; no raw encoder capture is available.
 This is an unavailable endpoint indication, not proof of the Nezha power-switch
 position or motor wiring. Check Nezha power and micro:bit seating, then reset the
 micro:bit to clear the latched fault before using the settings feature.
+
+Later on 2026-10-31, Ben confirmed fitting the micro:bit to Nezha. The 10:13 UTC
+capture shows I2C result 0, boot encoder raw 0 and both controllers connected;
+the earlier unavailable-endpoint fault is resolved. Accepted speed was 100%,
+centre 0°, range ±45° (defaults remain 20%/±45°). Ben reported that the text
+scrolls but is too fast and that the speaker is silent. Software investigation
+found the audio request purging its waiting reader, terminating the audio worker.
+The follow-up fixes that worker, halves scroll speed and lets either controller
+open settings. Audible speech/tones still need confirmation after the fix.
+
+The follow-up flash at 10:19:46 UTC booted with I2C 0, raw encoder 5 tenths,
+M1 stopped awaiting input and defaults 20% / centre 0° / ±45°. The earlier 100%
+setting was not retained across this DAPLink flash. Audio initialized successfully;
+no playback was requested in the initial observation. This reboot is not the
+unpowered hand-turn encoder test and does not establish its reference semantics.
 
 Evidence and historical results are in [container validation](bluepad-container-validation.md),
 [bench runsheet](xbox-bench-runsheet.md) and [PS2 investigation](receiver-investigation.md).

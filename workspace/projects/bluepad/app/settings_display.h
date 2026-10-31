@@ -1,6 +1,7 @@
 #ifndef SETTINGS_DISPLAY_H
 #define SETTINGS_DISPLAY_H
 #include "settings_logic.h"
+#define SETTINGS_SCROLL_COLUMN_MS 200u
 static inline const char *settings_name(unsigned selected) {
     return selected == 0 ? "SPEED" : selected == 1 ? "STEERING CENTRE" : "STEERING RANGE";
 }
@@ -18,7 +19,7 @@ static inline uint8_t settings_column(char c, unsigned col) {
 static inline bool settings_frame(settings_ui_t *s, uint32_t elapsed, bool skip, uint8_t frame[25]) {
     memset(frame,0,25);
     const char *name=settings_name(s->selected);
-    unsigned length=(unsigned)strlen(name), shift=elapsed/100;
+    unsigned length=(unsigned)strlen(name), shift=elapsed/SETTINGS_SCROLL_COLUMN_MS;
     if (!skip && shift < length*6+5) {
         for (unsigned x=0;x<5;x++) {
             int column=(int)shift+(int)x-5;

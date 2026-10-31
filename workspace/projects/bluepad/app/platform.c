@@ -119,9 +119,13 @@ static void tick(btstack_timer_source_t *source) {
         gpio_pin_get_dt(&buttons[1]) > 0) motor_drive_abort();
     int owner = display_state.owner;
     uint32_t current = k_uptime_get_32();
-    int blue=display_supervisor_slot(&display_state);
+    int editor=-1;
+    for (int slot=0;slot<2;slot++) {
+        uni_hid_device_t *d=uni_hid_device_get_instance_for_idx(slot);
+        if (display_state.pad[slot].online && settings_controller(d->conn.btaddr)) editor=slot;
+    }
     for (int candidate=0;candidate<2;candidate++) {
-      if (candidate!=owner && !(settings_active() && candidate==blue)) continue;
+      if (candidate!=owner && !(settings_active() && candidate==editor)) continue;
       int owner=candidate;
       if (gate.started && display_state.pad[owner].online && !probe_pending[owner] && (uint32_t)(current - received[owner]) >= 150 &&
         (uint32_t)(current - polled[owner]) >= 150) {
@@ -135,14 +139,14 @@ static void tick(btstack_timer_source_t *source) {
       }
     }
     bool was_settings=settings_active();
-    settings_tick(now,blue>=0 && display_state.pad[blue].seen && (uint32_t)(current-received[blue])<=500);
+    settings_tick(now,editor>=0 && display_state.pad[editor].seen && (uint32_t)(current-received[editor])<=500);
     if (was_settings && !settings_active()) draw_owner();
     settings_event_t rumble=settings_rumble_pending(now);
-    if (rumble!=SET_NONE && blue>=0 && !probe_pending[blue]) {
-        uni_hid_device_t *d=uni_hid_device_get_instance_for_idx(blue);
+    if (rumble!=SET_NONE && editor>=0 && !probe_pending[editor]) {
+        uni_hid_device_t *d=uni_hid_device_get_instance_for_idx(editor);
         uint8_t rc=hids_host_send_write_report(d->hids_cid,3,HID_REPORT_TYPE_OUTPUT,settings_rumble_report(rumble),8);
         if (rc==ERROR_CODE_SUCCESS) {
-            printk("BP_RUMBLE,%u,%u,%u\n",now,rumble,rc);
+            printk("BP_RUMBLE,%u,%u,%u,%d\n",now,rumble,rc,editor);
             settings_rumble_sent();
         }
     }
