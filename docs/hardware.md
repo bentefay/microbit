@@ -1,6 +1,7 @@
 # Hardware inventory
 
-Last reconciled: 2026-10-25. This is the inventory of hardware confirmed in this
+Last reconciled: 2026-10-31 (firmware capabilities; no new physical inspection).
+This is the inventory of hardware confirmed in this
 project, not a complete bill of materials for a finished car. The current setup
 is a loose-motor bench. See [agent handover](agent-handover.md) for software state.
 
@@ -64,14 +65,36 @@ test. Corrected continuous drive, position steering and either-stick controls
 were physically confirmed working. This describes the recorded bench, not a
 guarantee that a later session still has the same physical setup.
 
-Native motor-drive uses M1 ±20% continuous speed and M2 ±45° around its startup
-encoder position, at 15% positioning speed. These are loose-shaft bench limits,
+Native motor-drive defaults to M1 ±20% continuous speed and M2 ±45° around its startup
+encoder position, at 15% positioning speed. Blue-controller settings can change
+the drive cap to 5–100%, centre in 2° steps and travel to ±5–80° in 5° steps.
+The ±80° hard cap keeps the total steering sweep below 180° for shortest-path
+positioning; it is not a measured linkage limit. These are loose-shaft bench limits,
 not measured steering-linkage limits. Both sticks must be centred before initial
 arming. The LED shows the selected drive/steering input, not measured motor position.
 
 No assembled chassis, wheel sizes, gearing, steering linkage, loaded direction,
 steering travel or vehicle weight have been documented. Measure linkage centre
 and limits before chassis operation; do not discover limits by forcing stops.
+
+The built-in speaker is now driven on P0.00 with nrfx PWM1 at 16 kHz for settings
+speech/tones; the LED matrix keeps PWM0/TIMER4. The blue Xbox receives finite BLE
+rumble feedback. Audible/visible/tactile operation still needs physical testing.
+While settings are open, the matrix shows scrolling names then a coarse value
+bar; ordinary input display returns on exit. No additional wiring is required.
+
+Raw M2 command-0x46 boot readings are now logged as `BP_ENCODER`. Whether the
+encoder reference survives power loss remains unknown. Saved centre currently
+means an offset from that boot reading, so park centred before power-off. The
+pending bench test is: note raw reading, fully remove power (including USB), turn
+unpowered M2 about 90° by hand, restore power and compare. No physical result is
+inferred from telemetry or source research. See [settings mode](settings-mode.md).
+
+2026-10-31 settings-flash observation: USB/DAPLink and firmware heartbeats respond,
+but motor initialization returns I2C `-5`; no raw encoder capture is available.
+This is an unavailable endpoint indication, not proof of the Nezha power-switch
+position or motor wiring. Check Nezha power and micro:bit seating, then reset the
+micro:bit to clear the latched fault before using the settings feature.
 
 Evidence and historical results are in [container validation](bluepad-container-validation.md),
 [bench runsheet](xbox-bench-runsheet.md) and [PS2 investigation](receiver-investigation.md).

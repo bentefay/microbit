@@ -1,5 +1,47 @@
 # Bluepad container integration validation
 
+## Settings mode, 2026-10-31
+
+Implemented blue-only live speed/centre/range settings, scrolling/bar display,
+af_heart speech plus action tones on nrfx PWM1, finite immutable BLE rumble
+reports, MBST v1/CRC32 persistence with a motor stop/hold handshake, boot-A reset,
+raw boot encoder telemetry, and reproducible TypeScript WAV conversion.
+[Settings mode](settings-mode.md) is the full current UX/limits/persistence record;
+older fixed-cap results below describe previous firmware.
+
+68 CLI tests / 785 assertions and nine native ASan/UBSan suites pass. The native
+settings adapter is exercised against fake TLV and motor interfaces, including
+moving deferral, stale acknowledgement rejection, store failure/readback retry,
+unchanged/cancel suppression, reboot loading and factory reset. DSP tests cover
+initial-sibilant retention, normalization, alias rejection and checked-in PCM
+hashes. Both motor-drive and motor-free report-only builds pass. Resolved config
+has partial erase (3 ms slices), radio synchronization, nrfx PWM enabled and
+Zephyr PWM disabled. Motor-drive text/data/BSS: 302408/1456/54905 bytes.
+
+Authorized motor-drive HEX:
+`685c1a505c136d8d29955eb4413dc875e96c70badb44ddd33a363c97c5900f7e`.
+The first transfer's desktop remount timed out. The new checked-in
+`run device --mount` safely selected the FAT volume by exact USB parent and
+recovered the same serial, remount 0→1, no `FAIL.TXT`; automatic recovery is now
+included in the flash command. Firmware heartbeat was live and scanning; motor
+initialization reported `fault,-5`, four attempted writes, no encoder capture,
+and no connected controllers. Physical Nezha power/seating is unknown. Motor
+fault remains latched until reset after restoring the I2C endpoint.
+
+No physical motion, speech intelligibility, display appearance, rumble,
+settings save/reboot, factory-reset behavior, flash migration under load or
+encoder absolute reference has been verified in this session. MBST preservation
+across DAPLink reflash is also unverified. The current centre record deliberately
+uses a boot-relative offset until Ben's power-off/hand-turn/restart test resolves
+the encoder question. Builds did not flash; programming was a separate explicitly
+authorized CLI operation.
+
+Final reflash of that same verified HEX completed at 2026-10-31 08:38:12 UTC;
+the updated flash command recovered the USB-correlated mount and produced a
+fresh `flash-result.json` receipt with no `FAIL.TXT`. Monitor restarted at
+08:38:17 UTC and observed scanning heartbeats and the same latched I2C `-5`.
+Capture: `.cache/observations/2026-10-31T08-38-17-238Z-bluepad-session-75892f18.jsonl`.
+
 ## Xbox continuous drive and position steering
 
 The `--motor-drive` variant defaults to split controls on the selected Xbox for continuous M1

@@ -149,12 +149,12 @@ export async function bluepad(root: string, args: string[], command: Command, va
   const imageId = metadata.Id;
   const run = (argv: string[], capture = false) => command(['docker', 'run', ...bluepadArgs(root, output), imageId, ...argv], capture);
   if (action === 'test') {
-    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'controller_roles', 'display_owner', 'motor_bench', 'motor_control']) {
+    for (const name of ['nezha_packet', 'start_gate', 'joystick_frame', 'controller_roles', 'display_owner', 'motor_bench', 'motor_control', 'settings', 'settings_runtime']) {
     await run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-g',
-      '-I/app/app', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
+      '-I/app/app', '-I/app/tests/stubs', `/app/tests/test_${name}.c`, '-o', `/build/test-${name}`]);
     await run([`/build/test-${name}`]);
     }
-    console.log('Bluepad packet, start-button, joystick-frame, controller-role, ownership, finite-motor and continuous-control tests passed inside the offline container (ASan/UBSan).');
+    console.log('Nine Bluepad native suites passed inside the offline container (ASan/UBSan), including settings controls, feedback, persistence and motor integration.');
     return;
   }
   // Never leave a prior success receipt after a failed rebuild.
@@ -180,6 +180,14 @@ export async function bluepad(root: string, args: string[], command: Command, va
   if (/\bnezha_write_motor\b/.test(symbols) !== adapter) throw new Error('Unexpected motor adapter linkage');
   if (/\bmotor_bench_start\b/.test(symbols) !== bench) throw new Error('Unexpected finite motor bench linkage');
   if (/\bmotor_drive_start\b/.test(symbols) !== drive) throw new Error('Unexpected continuous motor drive linkage');
+  if (/\bsettings_tick\b/.test(symbols) !== drive) throw new Error('Unexpected settings linkage');
+  if (drive) {
+    const config = await readFile(join(output, 'cmake/zephyr/.config'), 'utf8');
+    for (const required of ['CONFIG_NRFX_PWM=y', 'CONFIG_SOC_FLASH_NRF_PARTIAL_ERASE=y', 'CONFIG_SOC_FLASH_NRF_RADIO_SYNC_TICKER=y']) {
+      if (!config.split('\n').includes(required)) throw new Error(`Missing settings configuration: ${required}`);
+    }
+    if (config.split('\n').includes('CONFIG_PWM=y')) throw new Error('Zephyr PWM conflicts with settings PWM1 ownership');
+  }
   for (const required of ['uni_hid_parser_xboxone_setup', 'bt_enable_raw', 'hids_host_connect', 'btstack_main']) {
     if (!symbols.includes(` ${required}\n`)) throw new Error(`Missing Bluetooth implementation: ${required}`);
   }

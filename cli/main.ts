@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, readdir, realpath, stat } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir, realpath, stat, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ import { monitorBluepad } from './bluepad-monitor';
 import { bluepadReport } from './bluepad-report';
 import { bluepadTiming } from './bluepad-timing';
 import { bluepadDualReport } from './bluepad-dual';
+import { tts } from './tts';
 
 export const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const image = 'microbit-toolchain:local';
@@ -124,6 +125,29 @@ async function mount() {
   }
   throw new Error('No mounted MICROBIT filesystem belongs to the detected USB device. Mount it in your desktop first.');
 }
+export function microbitMountCandidate(usbSysfs: string, blocks: { path: string; fstype: string | null; sysfs: string }[]) {
+  // udev may not have re-probed the DAPLink FAT volume after its USB remount.
+  // The subsequent mount is constrained to vfat and this exact USB device.
+  const matches = blocks.filter(b => (b.fstype === 'vfat' || b.fstype === null) && /^\/dev\/[a-zA-Z0-9]+$/.test(b.path) && b.sysfs.startsWith(usbSysfs + '/'));
+  if (matches.length !== 1) throw new Error(`Expected one FAT/unprobed block device for this micro:bit, found ${matches.length}; USB children: ${JSON.stringify(blocks.filter(b => b.sysfs.startsWith(usbSysfs + '/')))}`);
+  return matches[0].path;
+}
+async function remountDevice() {
+  const usb = await devices();
+  if (usb.length !== 1) throw new Error(`Expected one micro:bit, found ${usb.length}`);
+  try { return await mount(); } catch {}
+  const listing = JSON.parse(await command(['lsblk', '--json', '--list', '-o', 'NAME,PATH,FSTYPE'], true));
+  const blocks = await Promise.all((listing.blockdevices ?? []).map(async (b: any) => ({
+    path: b.path, fstype: b.fstype, sysfs: await realpath(`/sys/class/block/${b.name}`).catch(() => ''),
+  })));
+  const device = microbitMountCandidate(usb[0].sysfs, blocks);
+  await command(['udisksctl', 'mount', '--no-user-interaction', '--filesystem-type', 'vfat', '--block-device', device]);
+  const mounted = await mount();
+  if (mounted.serial !== usb[0].serial) throw new Error('Device changed while mounting');
+  const failure = join(mounted.target, 'FAIL.TXT');
+  if (existsSync(failure)) throw new Error(`DAPLink rejected flashing: ${await readFile(failure, 'utf8')}`);
+  return mounted;
+}
 async function serial(seconds = '10', label = 'capture', continuous = false) {
   projectName(label);
   const duration = Number(seconds);
@@ -181,6 +205,7 @@ async function flash(project: string, confirmed: boolean, bench = false, drive =
   const currentSource = project === 'bluepad' ? await bluepadInputHash(root) : await sourceHash(resolve(path, '..'));
   if (stamp.hex !== digest(hex) || stamp.source !== currentSource) throw new Error('Source or artifact changed since the verified build. Run build again.');
   const device = await mount();
+  await rm(join(path, 'flash-result.json'), { force: true });
   console.log(`Flashing ${project} to ${device.serial} at ${device.target}`);
   await command(['docker', 'run', '--rm', '--user', identity(), '--network', 'none', '--cap-drop=ALL',
     '--security-opt=no-new-privileges', '--read-only',
@@ -190,7 +215,12 @@ async function flash(project: string, confirmed: boolean, bench = false, drive =
   let after: Awaited<ReturnType<typeof mount>> | undefined;
   for (let attempt = 0; attempt < 30; attempt++) {
     await Bun.sleep(1000);
-    try { after = await mount(); } catch { continue; }
+    try { after = await mount(); } catch {
+      // DAPLink can re-enumerate without a desktop automount. Recover only its
+      // USB-correlated FAT volume; never select a disk by a remembered /dev name.
+      if (![1, 10, 20].includes(attempt)) continue;
+      try { after = await remountDevice(); } catch { continue; }
+    }
     if (after.serial !== device.serial) throw new Error('Device changed during flashing');
     const beforeCount = device.details.match(/Remount count: (\d+)/)?.[1];
     const afterCount = after.details.match(/Remount count: (\d+)/)?.[1];
@@ -244,6 +274,10 @@ const help = `micro:bit workspace — run COMMAND
   bluepad report FILE          Summarize captured input coverage and neutral return
   bluepad timing FILE          Compare report cadence during sampled stick movement
   bluepad inspect PATH [TEXT]   Read pinned native source inside Docker
+  tts lock-base|lock           Pin Python base / resolve hash-locked Kokoro deps and weights
+  tts image                    Build the pinned offline speech container
+  tts generate                 Synthesize audio/prompts.json offline into audio/candidates
+  tts firmware [af_heart|af_bella] Convert chosen WAVs to checked-in 16 kHz firmware PCM
   native lock                  Resolve native release tags and transitive source pins
   provision [PROJECT]          Alias for an offline first build; sources are in the image
   build [PROJECT] [--force]    Offline local PXT/native build (default car)
@@ -253,7 +287,7 @@ const help = `micro:bit workspace — run COMMAND
   editor-test                  Exercise editor in an isolated Chromium container
   new NAME                     Create a motionless project
   pxt PROJECT ARGS...           Run a PXT diagnostic in the offline container
-  device                       Inspect USB and verified MICROBIT mount
+  device [--mount]             Inspect USB/mount; optionally recover a missing desktop mount
   serial [SECONDS] [LABEL]     Capture serial in Docker; save timestamped local logs
   latency-report FILE          Analyze guided cue/input/command/encoder timestamps
   display-preview              Generate an offline interactive joystick LED preview
@@ -306,6 +340,7 @@ export async function main(args: string[]) {
         else if (arg === 'timing' && rest.length === 1) console.log(JSON.stringify(bluepadTiming(await readFile(resolve(rest[0]), 'utf8')), null, 2));
         else await bluepad(root, [arg, ...rest], command, validateHex);
         break;
+      case 'tts': await tts(root, [arg, ...rest], command); break;
       case 'pxt': await container('pxt', arg, rest); break;
       case 'inspect': await container('inspect', 'car', [arg || '', ...rest]); break;
       case 'source': await inspectSource(arg, rest[0]); break;
@@ -348,7 +383,9 @@ export async function main(args: string[]) {
         await command(['docker', 'run', ...runtimeArgs(`container:${editor}`), 'microbit-browser:local', 'editor-test', 'car', url]);
         break;
       }
-      case 'device': console.log(JSON.stringify(await mount(), null, 2)); break;
+      case 'device':
+        if (rest.length || (arg && arg !== '--mount')) throw new Error('Use run device [--mount]');
+        console.log(JSON.stringify(await (arg === '--mount' ? remountDevice() : mount()), null, 2)); break;
       case 'serial': await serial(arg, rest[0]); break;
       case 'latency-report': {
         if (!arg) throw new Error('Use run latency-report PATH-TO-CAPTURE.jsonl');

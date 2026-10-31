@@ -10,6 +10,9 @@ export class BluepadMonitor {
   reports = 0;
   lastStatusAt: number | null = null;
   lastInput: number[] | null = null;
+  settings: { deviceMs: number; event: string; active: boolean; selected: number; speed: number; center: number; range: number; pending: boolean } | null = null;
+  encoder: { deviceMs: number; rawTenths: number; bootCenter: number } | null = null;
+  audio: { deviceMs: number; result: number; rate: number } | null = null;
   motor: { state: string; step: number; result: number; deviceMs: number } | null = null;
   drive: { state: string; owner: number; speed: number; target: number; center: number;
     writes: number; result: number; livenessAgeMs: number; maxIoMs: number; deviceMs: number } | null = null;
@@ -20,6 +23,24 @@ export class BluepadMonitor {
     const dualNotice = this.dual.push(line);
     if (dualNotice) return dualNotice;
     const p = line.split(',');
+    if (p[0] === 'BP_SETTINGS' && p.length === 9 && /^\d+$/.test(p[1]) &&
+      ['defaults', 'loaded', 'factory-reset', 'enter', 'select', 'up', 'down', 'limit', 'save', 'cancel', 'stored', 'store-error', 'status'].includes(p[2]) &&
+      p.slice(3).every(x => /^\d+$/.test(x)) && ['0', '1'].includes(p[3]) && Number(p[4]) <= 2 &&
+      Number(p[5]) >= 5 && Number(p[5]) <= 100 && Number(p[5]) % 5 === 0 && Number(p[6]) < 360 &&
+      Number(p[7]) >= 5 && Number(p[7]) <= 80 && Number(p[7]) % 5 === 0 && ['0', '1'].includes(p[8])) {
+      this.settings = { deviceMs: Number(p[1]), event: p[2], active: p[3] === '1', selected: Number(p[4]),
+        speed: Number(p[5]), center: Number(p[6]), range: Number(p[7]), pending: p[8] === '1' };
+      if (p[2] !== 'status') return `SETTINGS ${p[2]}: speed ${p[5]}%, centre ${p[6]}°, range ±${p[7]}°.` +
+        (p[8] === '1' ? ' Save pending: centre the control sticks; keep power on until stored.' : '') +
+        (p[2] === 'store-error' ? ' Flash verification failed; retrying after five seconds.' : '');
+      return;
+    }
+    if (p[0] === 'BP_ENCODER' && p.length === 4 && /^\d+$/.test(p[1]) && /^-?\d+$/.test(p[2]) && /^\d+$/.test(p[3]) && Number(p[3]) < 360) {
+      this.encoder = { deviceMs: Number(p[1]), rawTenths: Number(p[2]), bootCenter: Number(p[3]) }; return;
+    }
+    if (p[0] === 'BP_AUDIO' && p.length === 5 && /^\d+$/.test(p[1]) && ['init', 'status'].includes(p[2]) && /^-?\d+$/.test(p[3]) && p[4] === '16000') {
+      this.audio = { deviceMs: Number(p[1]), result: Number(p[3]), rate: Number(p[4]) }; return;
+    }
     if (p[0] === 'BP_DRIVE' && p.length === 11 &&
       ['waiting', 'input', 'neutral', 'active', 'stale', 'aborted', 'fault'].includes(p[2]) &&
       [p[1], ...p.slice(3)].every(x => /^-?\d+$/.test(x)) && ['-1', '0', '1'].includes(p[3])) {
@@ -52,7 +73,7 @@ export class BluepadMonitor {
       if (uptime < this.uptime || p[3] === 'waiting') {
         this.lastInput = null;
         this.sawStart = false;
-        if (uptime < this.uptime) { this.motor = null; this.drive = null; }
+        if (uptime < this.uptime) { this.motor = null; this.drive = null; this.settings = null; this.encoder = null; this.audio = null; }
       }
       this.uptime = uptime;
       this.lastStatusAt = hostMs;
@@ -117,7 +138,7 @@ export async function monitorBluepad(argv: string[], root: string) {
   try {
     await captureSerial(argv, directory, 'bluepad-session', async (line) => {
       announce(model.push(line, performance.now() - start));
-      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE),/.test(line)) await save(true);
+      if (/^BP_(STATUS|INPUT|PEERS|PAD|SLOT|READY|GONE|PRIORITY|MOTOR|DRIVE|STICK|MODE|SETTINGS|ENCODER|AUDIO),/.test(line)) await save(true);
       return !line.startsWith('BP_');
     });
   } finally {

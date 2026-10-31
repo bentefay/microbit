@@ -23,6 +23,9 @@ bool joystick_matrix_init(void) {
 void joystick_matrix_clear(void) {
     if (framebuffer) memset(framebuffer, 0, 25);
 }
+void joystick_matrix_frame(const uint8_t frame[25]) {
+    if (framebuffer) memcpy(framebuffer, frame, 25);
+}
 void joystick_matrix_update(int32_t x, int32_t y) {
     if (!framebuffer) return;
     uint8_t frame[25];

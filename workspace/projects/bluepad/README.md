@@ -61,7 +61,8 @@ M1/M2 shafts, not a chassis or steering linkage. Bluetooth starts scanning
 automatically at boot and initializes stopped motors; no front-button press is needed.
 M2's current encoder position becomes the bench centre. Both sticks centred enables
 control. Split mode is the default: left Y controls continuous signed M1 speed,
-capped at 20%; right X controls position within ±45° of centre, at 15% servo speed.
+capped at 20% by default; right X controls position within ±45° of centre by
+default, at 15% servo speed. The settings mode below can change these limits.
 Xbox B selects either-stick mode, where either stick supplies both axes.
 Returning the control axes stops M1 and returns M2 to centre. These are free-shaft limits.
 
@@ -111,6 +112,53 @@ Software watchdog timing is not a measured radio-loss stop-time guarantee.
 reports requested outputs and I2C completion status at 5 Hz. Stable demands should
 leave the write counter unchanged. Position fields are modulo 360; the target is
 not measured shaft position. The live monitor saves this alongside both controllers.
+
+### Blue-controller settings (motor-drive only)
+
+Menu enters at Speed; Menu again accepts and exits. View cancels to the last
+accepted save; losing blue also cancels. Left/right cycle Speed, Steering centre,
+Steering range. Up/down change immediately (400 ms hold delay, 150 ms repeats).
+The sticks, blue A override and each controller's B mapping toggle remain active.
+Settings take over the matrix with scrolling names then a 25-pixel level bar;
+up/down skips the scroll. The speaker says each name and plays action tones;
+blue gets brief action/limit/enter/save/cancel rumble. Full UX and safety details:
+[settings mode](../../../docs/settings-mode.md).
+
+Defaults remain 20% speed and ±45° travel; ranges are 5–100%/5%, centre 0–359°/2°
+(wrap), and ±5–80°/5°. No chassis calibration is implied. For now a saved centre
+is a modulo-360 offset from the boot encoder reading: the encoder's persistent
+reference is still unverified. Park centred before power-off.
+
+Settings use MBST v1 + CRC32 in the existing TLV banks. Menu accepts in RAM;
+if changed, persistence waits for neutral control axes and M1 speed zero, then
+the I2C worker stops both motors and acknowledges a hold covering flash I/O and
+readback. New inputs cannot resume a motor until the hold is released. A failed
+stop prevents storage; a failed readback retries after five seconds. Holding
+micro:bit A at boot resets defaults, plays the confirmation tone and requests
+the same guarded save. Bonds are not deleted. A+B still latches motor stop.
+
+`BP_SETTINGS,time,event,active,selected,speed,centre,range,pending` reports exact
+values (selected 0/1/2). `stored` means record readback matched; `save` may still
+be pending. `BP_ENCODER,time,raw_tenths,boot_centre` repeats the single boot capture,
+not a live encoder poll. `BP_AUDIO,time,init|status,result,16000` reports PWM status.
+`BP_RUMBLE,time,event,result` means output report accepted, not felt feedback.
+The live JSON monitor includes settings/encoder/audio fields.
+
+Speech is checked-in unsigned 8-bit PCM at 16 kHz, streamed via nrfx PWM1/P0.00
+with two static RAM DMA buffers; matrix PWM0/TIMER4 stays independent. IRQ refill
+does no allocation, logging or motor I/O. The pinned nrfx API uses
+`NRF_PWM_PIN_NOT_CONNECTED`, not older `NRFX_PWM_PIN_NOT_USED` names. Zephyr PWM
+is disabled and the audio module asserts exclusive ownership. Flash partial erase
+and radio ticker synchronization are enabled. Rumble uses immutable Xbox BLE
+reports with controller-enforced durations on the BTstack thread, defers during
+liveness probes and drops feedback older than 500 ms. It avoids upstream's
+stack-local deferred-write buffer and timer-generated stop reports.
+
+`run tts firmware [af_heart|af_bella]` converts checked-in WAV candidates and
+updates `app/speech_data.h` plus `audio/firmware.json`; then rebuild explicitly.
+Native sanitizer tests cover the planner, UI/CRC/display/feedback and real settings
+adapter against fake TLV/motor interfaces, including deferred writes, stale
+acknowledgements, cancellation, failures, reboot loading and factory reset.
 
 ### Finite loose-motor variant
 

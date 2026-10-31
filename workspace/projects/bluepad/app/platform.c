@@ -11,6 +11,11 @@
 #endif
 #ifdef ENABLE_MOTOR_DRIVE
 #include "motor_drive.h"
+#include "settings.h"
+#include "settings_rumble.h"
+#include <ble/gatt-service/hids_host.h>
+BUILD_ASSERT(DPAD_UP==1 && DPAD_DOWN==2 && DPAD_RIGHT==4 && DPAD_LEFT==8);
+BUILD_ASSERT(MISC_BUTTON_START==4 && MISC_BUTTON_SELECT==2);
 #include <zephyr/kernel.h>
 #include <ble/gatt_client.h>
 static uint32_t received[2], motor_epoch, polled[2], polls[2];
@@ -91,6 +96,9 @@ static void priority(void) {
            display_supervisor_slot(&display_state));
 }
 static void draw_owner(void) {
+#ifdef ENABLE_MOTOR_DRIVE
+    if (settings_active()) return;
+#endif
     if (!matrix_ready) return;
     if (display_state.owner < 0) joystick_matrix_clear();
     else {
@@ -111,7 +119,11 @@ static void tick(btstack_timer_source_t *source) {
         gpio_pin_get_dt(&buttons[1]) > 0) motor_drive_abort();
     int owner = display_state.owner;
     uint32_t current = k_uptime_get_32();
-    if (gate.started && owner >= 0 && !probe_pending[owner] && (uint32_t)(current - received[owner]) >= 150 &&
+    int blue=display_supervisor_slot(&display_state);
+    for (int candidate=0;candidate<2;candidate++) {
+      if (candidate!=owner && !(settings_active() && candidate==blue)) continue;
+      int owner=candidate;
+      if (gate.started && display_state.pad[owner].online && !probe_pending[owner] && (uint32_t)(current - received[owner]) >= 150 &&
         (uint32_t)(current - polled[owner]) >= 150) {
         uni_hid_device_t *d = uni_hid_device_get_instance_for_idx(owner);
         polled[owner] = current; polls[owner]++;
@@ -120,6 +132,19 @@ static void tick(btstack_timer_source_t *source) {
             ? gatt_client_read_value_of_characteristic_using_value_handle(probe_event, d->conn.handle, probe_handle[owner])
             : gatt_client_read_value_of_characteristics_by_uuid16(probe_event, d->conn.handle, 1, 0xffff, 0x2a4a);
         probe_pending[owner] = poll_status[owner] == ERROR_CODE_SUCCESS;
+      }
+    }
+    bool was_settings=settings_active();
+    settings_tick(now,blue>=0 && display_state.pad[blue].seen && (uint32_t)(current-received[blue])<=500);
+    if (was_settings && !settings_active()) draw_owner();
+    settings_event_t rumble=settings_rumble_pending(now);
+    if (rumble!=SET_NONE && blue>=0 && !probe_pending[blue]) {
+        uni_hid_device_t *d=uni_hid_device_get_instance_for_idx(blue);
+        uint8_t rc=hids_host_send_write_report(d->hids_cid,3,HID_REPORT_TYPE_OUTPUT,settings_rumble_report(rumble),8);
+        if (rc==ERROR_CODE_SUCCESS) {
+            printk("BP_RUMBLE,%u,%u,%u\n",now,rumble,rc);
+            settings_rumble_sent();
+        }
     }
 #endif
     if (buttons_ready && bluetooth_ready && !gate.started) {
@@ -181,6 +206,9 @@ static void platform_init(int argc, const char **argv) {
             buttons_ready = false;
     }
     btstack_run_loop_set_timer_handler(&timer, tick);
+#ifdef ENABLE_MOTOR_DRIVE
+    settings_init(buttons_ready && gpio_pin_get_dt(&buttons[0])>0);
+#endif
     btstack_run_loop_set_timer(&timer, 20);
     btstack_run_loop_add_timer(&timer);
 }
@@ -211,11 +239,17 @@ static void disconnected(uni_hid_device_t *d) {
     int slot = uni_hid_device_get_idx_for_instance(d);
     if (slot < 0 || slot >= 2) return;
     int old_owner = display_state.owner;
+#ifdef ENABLE_MOTOR_DRIVE
+    bool was_settings=settings_active();
+    settings_disconnect(d->conn.btaddr);
+    probe_pending[slot]=false;
+#endif
     display_leave(&display_state, slot);
 #ifdef ENABLE_MOTOR_DRIVE
     if (old_owner == slot) motor_epoch++;
     received[slot] = 0;
     publish_motor_input();
+    if (was_settings && !settings_active()) draw_owner();
 #endif
     if (old_owner != display_state.owner) draw_owner();
     printk("BP_GONE,%u,%d\n", btstack_run_loop_get_time_ms(), slot);
@@ -253,6 +287,9 @@ static void data(uni_hid_device_t *d, uni_controller_t *ctl) {
     bool was_split = display_state.pad[slot].split;
 #ifdef ENABLE_MOTOR_DRIVE
     received[slot] = k_uptime_get_32();
+    bool was_settings=settings_active();
+    settings_input(d->conn.btaddr,g->dpad,g->misc_buttons,btstack_run_loop_get_time_ms());
+    if (was_settings && !settings_active()) draw_owner();
     if (display_input_axes(&display_state, slot, g->axis_x, g->axis_y,
                            g->axis_rx, g->axis_ry, g->buttons)) draw_owner();
     publish_motor_input();

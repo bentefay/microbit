@@ -5,4 +5,5 @@
 bool joystick_matrix_init(void);
 void joystick_matrix_update(int32_t x, int32_t y);
 void joystick_matrix_clear(void);
+void joystick_matrix_frame(const uint8_t frame[25]);
 #endif

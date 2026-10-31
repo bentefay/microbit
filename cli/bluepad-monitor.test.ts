@@ -1,6 +1,24 @@
 import { expect, test } from 'bun:test';
 import { BluepadMonitor } from './bluepad-monitor';
 
+test('settings monitor distinguishes pending RAM saves, verified storage and boot encoder captures', () => {
+  const m = new BluepadMonitor();
+  m.push('BP_STATUS,1,10000,scanning,0,0', 0);
+  expect(m.push('BP_SETTINGS,10001,save,0,1,25,359,45,1', 1)).toContain('Save pending');
+  expect(m.settings?.pending).toBe(true);
+  expect(m.push('BP_SETTINGS,10002,stored,0,1,25,359,45,0', 2)).toContain('stored');
+  expect(m.settings?.pending).toBe(false);
+  m.push('BP_ENCODER,10003,-10,359', 3);
+  expect(m.encoder?.rawTenths).toBe(-10);
+  m.push('BP_AUDIO,10003,status,0,16000', 3);
+  expect(m.audio?.result).toBe(0);
+  m.push('BP_SETTINGS,10004,status,0,1,101,359,45,0', 4);
+  expect(m.settings?.speed).toBe(25);
+  expect(m.push('BP_SETTINGS,10005,store-error,0,1,25,359,45,1', 5)).toContain('verification failed');
+  m.push('BP_STATUS,1,1000,scanning,0,0', 6);
+  expect(m.settings).toBeNull(); expect(m.encoder).toBeNull(); expect(m.audio).toBeNull();
+});
+
 test('continuous motor status tracks commands, stale stop and firmware restart', () => {
   const m = new BluepadMonitor();
   m.push('BP_STATUS,1,10000,waiting,0,0', 0);

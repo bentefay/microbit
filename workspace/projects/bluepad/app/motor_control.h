@@ -15,8 +15,8 @@ typedef struct {
 } drive_input_t;
 typedef struct {
     drive_mode_t mode;
-    bool armed, valid;
-    int center, speed, target;
+    bool armed, valid, speed_changed, steering_changed;
+    int center, speed, target, speed_cap, travel;
     uint32_t epoch;
 } drive_control_t;
 typedef struct { bool stop, speed, target; } drive_plan_t;
@@ -31,6 +31,11 @@ static inline int drive_axis(int raw, int cap) {
     return raw < 0 ? -mapped : mapped;
 }
 static inline int drive_angle(int angle) { return (angle % 360 + 360) % 360; }
+static inline void drive_configure(drive_control_t *s, int cap, int center, int travel) {
+    if (s->speed_cap != cap) s->speed_changed = true;
+    if (s->center != center || s->travel != travel) s->steering_changed = true;
+    s->speed_cap=cap; s->center=center; s->travel=travel;
+}
 static inline drive_plan_t drive_plan(drive_control_t *s, const drive_input_t *in, uint32_t now) {
     drive_plan_t plan = {0};
     if (s->mode == DRIVE_ABORTED || s->mode == DRIVE_FAULT) return plan;
@@ -51,10 +56,11 @@ static inline drive_plan_t drive_plan(drive_control_t *s, const drive_input_t *i
         return plan;
     }
     s->armed = true; s->mode = DRIVE_ACTIVE;
-    int speed = -drive_axis(in->y, DRIVE_CAP);
-    int target = drive_angle(s->center + drive_axis(in->x, STEERING_TRAVEL));
-    plan.speed = !s->valid || speed != s->speed;
-    plan.target = !s->valid || target != s->target;
+    int speed = -drive_axis(in->y, s->speed_cap ? s->speed_cap : DRIVE_CAP);
+    int target = drive_angle(s->center + drive_axis(in->x, s->travel ? s->travel : STEERING_TRAVEL));
+    plan.speed = !s->valid || s->speed_changed || speed != s->speed;
+    plan.target = !s->valid || s->steering_changed || target != s->target;
+    s->speed_changed = s->steering_changed = false;
     s->speed = speed; s->target = target; s->valid = true;
     return plan;
 }

@@ -1,5 +1,14 @@
 import { test, expect } from 'bun:test';
-import { projectName, validateHex, runtimeArgs, editorUrl } from './main';
+import { projectName, validateHex, runtimeArgs, editorUrl, microbitMountCandidate } from './main';
+test('mount recovery selects only one FAT device below the exact microbit USB path', () => {
+  const good = { path: '/dev/sda', fstype: 'vfat', sysfs: '/sys/usb/1-9/host/block/sda' };
+  const unrelated = { path: '/dev/sdb', fstype: 'vfat', sysfs: '/sys/usb/1-99/host/block/sdb' };
+  expect(microbitMountCandidate('/sys/usb/1-9', [good, unrelated])).toBe('/dev/sda');
+  expect(microbitMountCandidate('/sys/usb/1-9', [{ ...good, fstype: null }])).toBe('/dev/sda');
+  for (const candidates of [[], [unrelated], [good, good], [{ ...good, fstype: 'ext4' }], [{ ...good, path: '--all' }]]) {
+    expect(() => microbitMountCandidate('/sys/usb/1-9', candidates)).toThrow();
+  }
+});
 test('shared editor URL preserves filesystem selection across the PXT root redirect', () => {
   expect(editorUrl('Serving http://0.0.0.0:3232/#local_token=test&wsport=3233'))
     .toBe('http://localhost:3232/index.html?ws=fs#local_token=test&wsport=3233');

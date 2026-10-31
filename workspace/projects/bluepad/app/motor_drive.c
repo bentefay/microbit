@@ -9,10 +9,27 @@
 static const struct device *const bus = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 K_SEM_DEFINE(begin_drive, 0, 1);
 static atomic_t started, aborted;
+static atomic_t boot_ready, settings_ready, save_requested, save_ready;
+static int boot_center;
+static int32_t boot_raw;
+static motor_settings_t runtime_settings;
 static struct k_spinlock input_lock;
 static drive_input_t pending = {.owner = -1};
 static unsigned writes, max_io_ms;
 static int error;
+bool motor_drive_boot(int *center, int32_t *raw) {
+    if (!atomic_get(&boot_ready)) return false;
+    *center = boot_center; *raw = boot_raw; return true;
+}
+void motor_drive_settings(motor_settings_t settings) {
+    if (!settings_valid(settings)) return;
+    k_spinlock_key_t key = k_spin_lock(&input_lock);
+    runtime_settings = settings;
+    k_spin_unlock(&input_lock, key);
+    atomic_set(&settings_ready, 1);
+}
+void motor_drive_save_request(bool requested) { atomic_set(&save_requested, requested); }
+bool motor_drive_save_ready(void) { return atomic_get(&save_ready) != 0; }
 static const char *const mode_names[] = {"input", "neutral", "active", "stale", "aborted", "fault"};
 void motor_drive_input(drive_input_t input) {
     k_spinlock_key_t key = k_spin_lock(&input_lock);
@@ -62,7 +79,9 @@ static int initialize(int *center) {
     uint32_t bits = (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8) |
                     ((uint32_t)bytes[2] << 16) | ((uint32_t)bytes[3] << 24);
     int32_t tenths; memcpy(&tenths, &bits, sizeof(tenths));
+    boot_raw = tenths;
     *center = drive_angle((tenths % 3600) / 10);
+    printk("BP_ENCODER,%u,%d,%d\n", k_uptime_get_32(), tenths, *center);
     const uint8_t servo_speed[8] = {0xff,0xf9,0,0,0x77,0,0,135};
     return write_packet(servo_speed);
 }
@@ -74,16 +93,35 @@ static int position(int target) {
 }
 static void worker(void *a, void *b, void *c) {
     (void)a; (void)b; (void)c;
-    // Readiness heartbeat without motor writes; front A/B starts exactly once.
+    // Readiness heartbeat without motor writes; platform auto-starts once.
     while (k_sem_take(&begin_drive, K_SECONDS(1)) != 0)
         printk("BP_DRIVE,%u,waiting,-1,0,-1,-1,0,0,0,0\n", k_uptime_get_32());
     drive_control_t control = {0};
     error = initialize(&control.center);
     if (error) { control.mode = DRIVE_FAULT; stop_both(); }
+    else { boot_center = control.center; atomic_set(&boot_ready, 1); }
     uint32_t printed = 0;
     drive_mode_t last_mode = DRIVE_FAULT;
     for (;;) {
         drive_input_t input = latest();
+        if (!error && !atomic_get(&settings_ready)) { k_msleep(10); continue; }
+        k_spinlock_key_t key = k_spin_lock(&input_lock);
+        drive_configure(&control,runtime_settings.speed,runtime_settings.center,runtime_settings.range);
+        k_spin_unlock(&input_lock, key);
+        // A two-way handshake prevents input arriving during TLV I/O from
+        // restarting either motor. Stop M2 explicitly: speed=0 alone is not
+        // proof that its last position command has finished.
+        bool neutral = !input.present || (drive_abs(input.y)<=64 && drive_abs(input.x)<=64 && !input.other_deflected);
+        if (atomic_get(&save_requested) && !error &&
+            (atomic_get(&save_ready) || (control.speed == 0 && neutral))) {
+            if (!atomic_get(&save_ready)) {
+                int stopped = stop_both();
+                if (stopped) { error=stopped; control.mode=DRIVE_FAULT; }
+                else { control.valid=false; control.armed=false; atomic_set(&save_ready,1); }
+            }
+            if (atomic_get(&save_ready)) { k_msleep(10); continue; }
+        }
+        if (!atomic_get(&save_requested)) atomic_set(&save_ready,0);
         drive_plan_t plan = drive_plan(&control, &input, k_uptime_get_32());
         int rc = 0;
         if (plan.stop) rc = stop_both();

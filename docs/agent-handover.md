@@ -1,6 +1,6 @@
 # Agent handover
 
-Updated 2026-10-25 after commit `130bab6`. Read this and
+Updated 2026-10-31 for settings-mode implementation. Read this and
 [hardware inventory](hardware.md) first. These are versioned project memory;
 do not rely on the original chat, ignored caches or an agent's session state.
 Update these documents when behavior, hardware or verification changes.
@@ -24,20 +24,55 @@ controllers using the micro:bit radio. No ESP32 bridge is part of this setup.
   Centred blue input remains neutral during override even if Eli is moving.
   Losing blue during override stops output instead of handing control to Eli;
   the override latch survives its reconnect, but not a micro:bit reboot.
-- Initial/recovery arming requires centred sticks. Drive is capped at 20%;
-  steering targets are ±45° from captured loose-shaft centre at 15% servo speed.
+- Initial/recovery arming requires centred sticks. Drive defaults to a 20% cap;
+  steering targets default to ±45° from captured loose-shaft centre at 15% servo speed.
   Micro:bit **A+B** and I2C faults latch stop until reset.
 - Default build is report-only and motor-free. `--motor-drive` explicitly selects
   continuous control; `--motor-bench` is the separate finite four-jog test and
   still requires a front-button press. Do not flash the wrong variant.
+- Motor-drive now has blue-only Menu/View/D-pad settings, live speed (5–100%,
+  default 20%), centre (0–359°, 2° wrap) and range (±5–80°, default ±45°).
+  Menu enters/saves, View or blue disconnect cancels; names scroll and speak,
+  up/down skips to a value bar, tones/rumble distinguish actions. Sticks and A/B
+  mappings keep working. See [full UX and decisions](settings-mode.md).
+- MBST v1 + CRC32 saves only changed accepted values, after an I2C-worker
+  stop/hold handshake. Centre both control sticks and wait for `stored` before
+  removing power. A at boot restores defaults; A+B still latches stop.
+- Encoder reference remains unverified. v1 deliberately persists centre as an
+  offset from the boot reading; park centred before power-off. `BP_ENCODER`
+  repeats the raw boot capture (not a live read). Ben's one power-cycle/hand-turn
+  test will determine whether a future absolute-reference format is appropriate.
 
-Last flashed motor-drive HEX SHA-256:
+Previous (2026-10-25) motor-drive HEX SHA-256:
 `56916a7530cce7c0113ad427ed49da7c8443df31b6be642d2511d83ce396d605`.
 Flashed 2026-10-25 08:18:04 UTC; same-device DAPLink remount, no `FAIL.TXT`.
 Both controllers then reported connected, split mode and start-button mask zero;
 blue input produced active motor commands with I2C result zero. Last implementation
 checks: 58 CLI tests / 727 assertions, seven native C suites with ASan/UBSan,
 motor-drive and report-only builds passed.
+
+Settings implementation validation (2026-10-31): **68 CLI tests / 785 assertions,
+nine native ASan/UBSan suites, motor-drive and report-only builds passed**.
+The settings HEX is
+`685c1a505c136d8d29955eb4413dc875e96c70badb44ddd33a363c97c5900f7e`.
+The first transfer completed but desktop automount failed; the same-device FAT
+remount was recovered with new checked-in `run device --mount`, count 0→1 and
+no `FAIL.TXT`. Flash now includes this recovery and clears stale flash receipts.
+Post-flash firmware heartbeat is live/scanning, but **motor initialization is
+latched fault `-5`**, with no connected controllers and no encoder capture.
+Do not call this physically ready or claim settings/speaker/rumble was tested.
+The Nezha must respond on I2C, then the micro:bit must be reset to clear the fault;
+power/seating/wiring have not been physically inspected in this session.
+All firmware and automated work is complete before that bundled physical cue.
+Final authorized reflash of the **same verified HEX** completed successfully at
+2026-10-31 08:38:12 UTC using the recovered-mount flash command. The receipt is
+`built/motor-drive/flash-result.json` (ignored): same serial, remounted, no
+`FAIL.TXT`. Monitor restarted at 08:38:17 UTC; fresh scanning heartbeats and the
+same I2C fault were observed. Current capture:
+`.cache/observations/2026-10-31T08-38-17-238Z-bluepad-session-75892f18.jsonl`.
+Monitor is left running; this is a recorder, not continued agent supervision.
+After the full USB-removal encoder test, restart it with `run bluepad monitor`
+if the serial transport exits on disconnect.
 
 ## What is already tested
 
@@ -75,6 +110,17 @@ or an end-to-end latency measurement. No loaded chassis test has been recorded.
   over 500 ms stops output; moving stale input must re-centre before resuming.
 - Steering centre is captured once on startup. There is no automatic chassis
   homing, measured linkage calibration or encoder polling in the control loop.
+  Saved offset is applied after capture; the worker waits for settings to load
+  before arming. Live setting changes force the relevant command to be re-emitted.
+- `settings_logic.h` holds UI/limits/CRC; `settings.c` owns accepted vs persisted
+  values on the BTstack thread. `motor_drive.c` stops both motors before granting
+  a settings flash hold; it cannot resume until storage/readback releases it.
+  Deferral also requires neutral steering, stricter than only M1 speed zero.
+- `settings_audio.c` streams checked-in 16 kHz af_heart PCM through nrfx PWM1
+  on P0.00 with static double buffers and bounded stop waits. Zephyr PWM stays
+  off; the matrix still owns PWM0/TIMER4. Rumble uses immutable BLE report 0x03
+  payloads with finite hardware durations; no upstream rumble timer callbacks.
+  The report lifetime remains safe when HIDS defers sending behind a GATT probe.
 - PS2 vendor readiness loops have no timeout. Keep them out of timing-critical
   code. The old PS2 lag/hang investigation remains unresolved; do not call it fixed.
 - An initially slower second-controller report cadence improved on reconnection.
@@ -113,6 +159,13 @@ Check `updated`, `active` and device heartbeat before claiming live readiness.
 saved captures. `BP_STATUS` button mask zero means automatic startup, not A+B.
 `BP_MODE` records per-pad modes; `BP_PRIORITY` override; `BP_POLL` actual responses;
 `BP_DRIVE` commands, state, I2C errors and liveness age.
+`BP_SETTINGS` contains exact settings plus pending-save state; `stored` records
+successful write/readback. `BP_ENCODER` repeats raw tenths and boot centre;
+`BP_AUDIO` reports PWM readiness. The monitor's live JSON includes all three.
+Speech candidates live under `workspace/projects/bluepad/audio/candidates/`
+(`af_heart`, `af_bella`). `run tts firmware VOICE` converts an existing candidate
+without Docker/downloads; `run tts generate` regenerates WAVs in the pinned,
+offline Kokoro image. Conversion/build do not flash.
 
 All `.cache/` logs and `built/` artifacts are ignored and may be absent on a fresh
 clone. Durable evidence is summarized in [validation](bluepad-container-validation.md).
@@ -141,6 +194,5 @@ chassis movement. A running recorder can outlive a turn, but does not make an
 idle assistant actively supervise hardware or automatically resume.
 
 The GitHub remote is `git@github.com:bentefay/microbit.git`, branch `main`.
-Ben explicitly requested commit and push for this handover, including the existing
-local implementation commits. Future pushes still require an applicable user
-request; never force-push or create a remote repository automatically.
+This settings task authorizes local commits and the verified motor-drive flash,
+explicitly **no push**. Do not reuse the older handover's push authorization.
